@@ -56,7 +56,21 @@ site it came from.
 - **Favorites.** Click ☆ on a build to star it; **★ Favorites** next to the search shows only starred builds.
 - Builds read by an older version of the extension are read again when the browser starts or the extension reloads.
 
-## Build and install
+## Install
+
+From the [latest release](https://github.com/WesleySZhang/pob-manager-extension/releases/latest):
+
+- **Firefox (140 or later):** download `pob-manager-extension-<version>-firefox.xpi` and drag it onto a Firefox window,
+  then click **Add**. It's signed by Mozilla, stays installed and updates itself. If it records nothing, allow its site
+  access in `about:addons` → PoB Manager → Permissions.
+- **Chrome / Edge:** download `pob-manager-extension-<version>-chrome-edge.zip` and unzip it. Open `chrome://extensions`
+  (or `edge://extensions`), turn on **Developer mode**, and drag the unzipped folder onto the page (or **Load unpacked**).
+  To update, unzip the new version over the same folder and click the extension's reload button; the saved builds stay.
+  Removing the extension deletes them.
+
+Privacy: [PRIVACY.md](PRIVACY.md). Nothing leaves the browser except the download of each build from its own site.
+
+## Build from source
 
 ```
 npm install
@@ -67,14 +81,39 @@ npm run lint:firefox   # Mozilla's add-on linter on dist/firefox
 `npm run build` also writes `dist/packages/pob-manager-chrome-<version>.zip` and
 `dist/packages/pob-manager-firefox-<version>.xpi` (made with Mozilla's `web-ext`; `--no-package` skips them).
 
-- **Chrome / Edge:** `chrome://extensions` (or `edge://extensions`), turn on Developer mode, **Load unpacked**, pick
-  `dist/chrome`. The `.zip` is the same files for sharing or a store upload; Chrome can't install a `.zip` directly.
-- **Firefox (temporary):** `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on**, pick the `.xpi` (or
-  `dist/firefox/manifest.json`). It is removed when Firefox closes. If it records nothing, allow its site access in
-  `about:addons` → PoB Manager → Permissions.
-- **Firefox (kept):** the `.xpi` is **unsigned**. Release Firefox only keeps signed add-ons. Firefox Developer Edition,
-  Nightly or ESR install it from `about:addons` → ⚙ → Install Add-on From File once `xpinstall.signatures.required` is set
-  to `false` in `about:config`. Needs Firefox 140 or later.
+- **Chrome / Edge:** Load unpacked, pick `dist/chrome`.
+- **Firefox:** `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on**, pick the `.xpi` (or
+  `dist/firefox/manifest.json`). It is removed when Firefox closes: a local build is **unsigned**, and release Firefox
+  only keeps signed add-ons.
+
+## Releasing
+
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: the CI checks, Mozilla signing (unlisted, for
+self-distribution), a GitHub release with the signed `.xpi` and the Chrome/Edge zip, and `updates.json` on GitHub Pages
+(`https://wesleyszhang.github.io/pob-manager-extension/updates.json`), which installed Firefox copies check daily.
+
+```
+npm run bump -- 0.2.0
+git commit -am "Release 0.2.0"
+git tag v0.2.0
+git push origin main v0.2.0
+```
+
+Mozilla signs each version number only once, so every release needs a new version. Chrome and Edge copies loaded with
+Load unpacked don't update; users replace the folder.
+
+### One-time setup
+
+1. The repo must be public (GitHub Pages and downloadable releases).
+2. Settings → Pages → Source: **GitHub Actions**.
+3. Settings → Environments → `github-pages` → Deployment branches and tags: add the tag rule `v*`
+   (by default only `main` may deploy, and releases run from tags).
+4. Settings → Secrets and variables → Actions: `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, from addons.mozilla.org →
+   Developer Hub → Tools → Manage API Keys (`gh secret set AMO_JWT_ISSUER` asks for the value without echoing it). The
+   pair belongs to the Mozilla account, so PoE-Ninja-Extension uses the same one: regenerating it means updating both.
+
+The add-on ID (`pob-manager@pob-manager-extension`) and the update URL must never change: installed copies only update
+to the same ID from the URL they were installed with.
 
 ## How fast
 
@@ -104,6 +143,7 @@ running headless (PoE-Sim's pinned checkout and LuaJIT build):
 | Command | What it checks |
 | --- | --- |
 | `npm test` | Unit tests, plus every fixture build in `test/fixtures/golden` against the fields headless PoB showed for it (`expected.json`), loadouts included. |
+| `npm run test:ci` | What CI runs (`.github/workflows/ci.yml`): `npm test` without the one check that needs the PoE wiki vault (`data/leagues.js` vs the vault's league pages), which only exists on the dev machine. CI fetches the PoB files `test/data.test.js` reads at the pin and sets `POB_SRC`. |
 | `npm run accuracy` | The reader vs headless PoB on real builds (default: PoE-Sim's poe.ninja sweep and golden builds): class, ascendancy, level, main skill, keystones, uniques, every loadout, and the sidebar text of every saved stat (vs PoB's own `FormatStat`). Exact match. |
 | `node tools/main_skill_review.js` | After `npm run accuracy`: every build where our main skill pick differs from PoB's, to review by hand. |
 | `npm run e2e:edge` | Real Edge with the extension: visits share links and pages that must be ignored, then uses the popup. |

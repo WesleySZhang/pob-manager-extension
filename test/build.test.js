@@ -43,7 +43,10 @@ test("every packaged file exists, and the popup only loads packaged files", () =
 test("no permissions beyond storage and the share sites; Firefox declares that no data is collected", () => {
   assert.deepEqual(targets.chrome.permissions, ["storage"]);
   const gecko = targets.firefox.browser_specific_settings.gecko;
-  assert.equal(gecko.id, "pob-manager@local");
+  assert.equal(gecko.id, "pob-manager@pob-manager-extension");
+  // tools/updates_json.js writes this file to GitHub Pages; a moved URL strands every installed copy.
+  assert.equal(gecko.update_url, "https://wesleyszhang.github.io/pob-manager-extension/updates.json");
+  assert.equal(targets.chrome.browser_specific_settings, undefined, "Chrome's manifest carries no gecko settings");
   assert.deepEqual(gecko.data_collection_permissions, { required: ["none"] });
   assert.equal(gecko.strict_min_version, "140.0", "first Firefox with data_collection_permissions");
 });

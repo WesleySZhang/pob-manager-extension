@@ -16,7 +16,11 @@ const targets = {
   firefox: Object.assign({}, base, {
     background: { scripts: backgroundScripts },
     browser_specific_settings: { gecko: {
-      id: "pob-manager@local",
+      // Mozilla signs under this id; installed copies update only to the same id, so it must never change.
+      id: "pob-manager@pob-manager-extension",
+      // Self-distributed updates: the release workflow publishes this file to GitHub Pages (tools/updates_json.js).
+      // Installed copies keep checking the URL they were installed with, so it must never move.
+      update_url: require("./updates_json.js").UPDATE_URL,
       // Nothing leaves the browser except the download of each build from its own site, so no data is collected:
       // Mozilla's "none" category (extensionworkshop.com, firefox-builtin-data-consent). Firefox reads this key from 140.
       strict_min_version: "140.0",

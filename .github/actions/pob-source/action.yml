@@ -1,0 +1,19 @@
+# The Path of Building files test/data.test.js checks data/pobdata.js against, at the pin the data was generated
+# from (v2.67.2, b32759a; PoE-Sim SETUP.md). Only those files are fetched, not the whole repo. Sets POB_SRC.
+name: PoB source at the pin
+description: Sparse checkout of PathOfBuilding v2.67.2 for test/data.test.js
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        dir="$RUNNER_TEMP/pob"
+        git init -q "$dir"
+        git -C "$dir" remote add origin https://github.com/PathOfBuildingCommunity/PathOfBuilding.git
+        git -C "$dir" sparse-checkout set --no-cone /changelog.txt /src/GameVersions.lua /src/Modules/Data.lua \
+          /src/Data/ClusterJewels.lua /src/TreeData/3_29/tree.lua /src/TreeData/3_25/tree.lua \
+          /src/TreeData/3_10/tree.lua /src/TreeData/2_6/tree.lua
+        git -C "$dir" fetch -q --depth 1 --filter=blob:none origin b32759ab0f31a1c8499a0d420cb0f0633d4fe478
+        git -C "$dir" checkout -q FETCH_HEAD
+        echo "POB_SRC=$dir/src" >> "$GITHUB_ENV"

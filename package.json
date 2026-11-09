@@ -5,6 +5,7 @@
   "description": "Browser extension: records the Path of Building share links you open and lists them in the toolbar popup",
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
+    "test:ci": "node --test --test-skip-pattern=\"the generated table matches the wiki vault\" \"test/**/*.test.js\"",
     "build": "node tools/build.js",
     "data:pob": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/gen_pobdata.ps1",
     "data:leagues": "node tools/gen_leagues.js",
@@ -14,7 +15,8 @@
     "icons": "node tools/icons.js",
     "e2e:firefox": "npm run build && node tools/e2e/firefox.js",
     "lint:firefox": "npm run build && web-ext lint --self-hosted --source-dir dist/firefox",
-    "measure": "npm run build && node tools/e2e/measure.js"
+    "measure": "npm run build && node tools/e2e/measure.js",
+    "bump": "node tools/set_version.js"
   },
   "devDependencies": {
     "@xmldom/xmldom": "^0.9.12",

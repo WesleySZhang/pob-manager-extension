@@ -29,6 +29,9 @@ Owner: Wesley. How it works and how to test it: `README.md`.
 - Every accuracy test names its reference (PoB file/function, headless PoB, the wiki page) and its tolerance (exact here).
 - Never loosen a check, edit an expected value or skip a test to make it pass. Investigate.
 - `npm test`: unit tests plus `test/golden.test.js` (fixture builds vs headless PoB's fields in `expected.json`).
+- CI (`.github/workflows/ci.yml`, and the release workflow) runs `npm run test:ci`: `npm test` minus the one check that needs the
+  PoE wiki vault, with PoB's files fetched at the pin (`.github/actions/pob-source`). A new test that reads local-only sources
+  must work the same way: fetch the source in CI, or stay local and say so in README's test table.
 - `npm run accuracy`: the reader vs headless PoB on real builds (PoE-Sim's poe.ninja sweep and golden builds). Run it after
   any change to `src/buildinfo.js` or the data. `npm run fixtures` rewrites the golden expectations from PoB.
 - `npm run e2e:edge` / `npm run e2e:firefox`: real browsers with the extension; make real GET requests to the share sites.

@@ -1,0 +1,99 @@
+# Pushing a tag "vX.Y.Z" publishes a GitHub release with:
+#   - the Firefox add-on, signed by Mozilla as an unlisted (self-distributed) add-on: a .xpi that installs
+#     by dragging it onto Firefox;
+#   - the Chrome/Edge zip, loaded with Developer mode -> Load unpacked.
+# Needs two repository secrets from addons.mozilla.org -> Developer Hub -> Tools -> Manage API Keys:
+#   AMO_JWT_ISSUER (the "JWT issuer") and AMO_JWT_SECRET (the "JWT secret"). The pair belongs to the Mozilla
+#   account, not to this add-on: PoE-Ninja-Extension uses the same pair, and regenerating it means updating both repos.
+# Mozilla signs each version number once (across listed and unlisted), so bump the version for every release.
+# Same steps as PoE-Ninja-Extension's release workflow.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # create the release
+  pages: write    # publish updates.json + the .xpi for Firefox's automatic updates
+  id-token: write # required by actions/deploy-pages
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    env:
+      TAG: ${{ github.ref_name }}
+      SLUG: pob-manager-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Check the tag matches the version in the files
+        id: version
+        run: echo "version=$(node tools/release_version.js "$TAG")" >> "$GITHUB_OUTPUT"
+
+      - uses: ./.github/actions/pob-source
+      - run: npm run test:ci
+      - run: npm run lint:firefox # also builds dist/ and dist/packages
+
+      - name: Sign the Firefox add-on with Mozilla (unlisted)
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          if [ -z "$WEB_EXT_API_KEY" ] || [ -z "$WEB_EXT_API_SECRET" ]; then
+            echo "::error::Add the AMO_JWT_ISSUER and AMO_JWT_SECRET repository secrets (addons.mozilla.org API keys)"
+            exit 1
+          fi
+          npx web-ext sign --channel=unlisted --source-dir dist/firefox --artifacts-dir dist/signed --approval-timeout 1200000
+
+      - name: Name the release files
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          mkdir -p release
+          xpi=$(ls dist/signed/*.xpi)
+          [ "$(echo "$xpi" | wc -l)" = 1 ] || { echo "::error::Expected one signed .xpi, got: $xpi"; exit 1; }
+          cp "$xpi" "release/$SLUG-$V-firefox.xpi"
+          cp "dist/packages/pob-manager-chrome-$V.zip" "release/$SLUG-$V-chrome-edge.zip"
+          ls -l release
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.version.outputs.version }}"
+          cat > notes.md <<EOF
+          ## Install
+
+          **Firefox (140 or later):** download \`$SLUG-$V-firefox.xpi\` and drag it onto a Firefox window, then click **Add**.
+          It's signed by Mozilla, stays installed and updates itself.
+
+          **Chrome / Edge:** download \`$SLUG-$V-chrome-edge.zip\` and unzip it. Open \`chrome://extensions\`
+          (or \`edge://extensions\`), turn on **Developer mode**, then drag the unzipped folder onto the page
+          (or click **Load unpacked** and pick it). To update, unzip the new version over the same folder and click
+          the reload button on the extension's card: your saved builds stay. Removing the extension deletes them.
+
+          Then open any Path of Building share link (pobb.in, poe.ninja, Maxroll, pob.codes, poedb, Pastebin, Rentry)
+          and click the PoB Manager button in the toolbar.
+          EOF
+          gh release create "$TAG" release/* --title "v$V" --notes-file notes.md --generate-notes --verify-tag
+
+      # Firefox's automatic updates: installed copies read updates.json from the update_url in the manifest
+      # (https://wesleyszhang.github.io/pob-manager-extension/updates.json) once a day.
+      - name: Build the update site
+        run: node tools/updates_json.js "release/$SLUG-${{ steps.version.outputs.version }}-firefox.xpi" site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: pages
+        uses: actions/deploy-pages@v4
