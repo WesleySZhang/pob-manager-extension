@@ -39,16 +39,25 @@ site it came from.
   (`pob://` link), copy the link, delete.
 - DPS is "as exported": what PoB calculated with the uploader's settings. Only the loadout the build was saved on has stats.
 
-## Install (unpacked)
+## Build and install
 
 ```
 npm install
-npm run build        # writes dist/chrome and dist/firefox
+npm run build          # dist/chrome, dist/firefox, and the packages below
+npm run lint:firefox   # Mozilla's add-on linter on dist/firefox
 ```
 
-- **Chrome / Edge:** `chrome://extensions` (or `edge://extensions`), turn on Developer mode, **Load unpacked**, pick `dist/chrome`.
-- **Firefox:** `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on**, pick `dist/firefox/manifest.json`. Then
-  allow the extension's site access in `about:addons` → PoB Manager → Permissions (Firefox asks for host access separately).
+`npm run build` also writes `dist/packages/pob-manager-chrome-<version>.zip` and
+`dist/packages/pob-manager-firefox-<version>.xpi` (made with Mozilla's `web-ext`; `--no-package` skips them).
+
+- **Chrome / Edge:** `chrome://extensions` (or `edge://extensions`), turn on Developer mode, **Load unpacked**, pick
+  `dist/chrome`. The `.zip` is the same files for sharing or a store upload; Chrome can't install a `.zip` directly.
+- **Firefox (temporary):** `about:debugging#/runtime/this-firefox`, **Load Temporary Add-on**, pick the `.xpi` (or
+  `dist/firefox/manifest.json`). It is removed when Firefox closes. If it records nothing, allow its site access in
+  `about:addons` → PoB Manager → Permissions.
+- **Firefox (kept):** the `.xpi` is **unsigned**. Release Firefox only keeps signed add-ons. Firefox Developer Edition,
+  Nightly or ESR install it from `about:addons` → ⚙ → Install Add-on From File once `xpinstall.signatures.required` is set
+  to `false` in `about:config`. Needs Firefox 140 or later.
 
 ## How the reading is checked
 

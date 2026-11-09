@@ -12,12 +12,14 @@
     "accuracy": "node tools/accuracy.js",
     "e2e:edge": "npm run build && node tools/e2e/edge.js",
     "icons": "node tools/icons.js",
-    "e2e:firefox": "npm run build && node tools/e2e/firefox.js"
+    "e2e:firefox": "npm run build && node tools/e2e/firefox.js",
+    "lint:firefox": "npm run build && web-ext lint --self-hosted --source-dir dist/firefox"
   },
   "devDependencies": {
     "@xmldom/xmldom": "^0.9.12",
     "fake-indexeddb": "^6.0.0",
-    "puppeteer-core": "^24.43.1"
+    "puppeteer-core": "^24.43.1",
+    "web-ext": "^10.8.0"
   },
   "license": "MIT"
 }
