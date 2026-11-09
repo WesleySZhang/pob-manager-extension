@@ -25,7 +25,7 @@ const targets = {
   }),
 };
 const files = [
-  "src/xml.js", "src/buildinfo.js", "src/sites.js", "src/pobcode.js", "src/store.js", "src/recorder.js", "src/filter.js", "src/background.js",
+  "src/xml.js", "src/buildinfo.js", "src/sites.js", "src/pobcode.js", "src/store.js", "src/recorder.js", "src/filter.js", "src/statfmt.js", "src/details.js", "src/background.js",
   "data/pobdata.js", "data/leagues.js",
   "popup/popup.html", "popup/popup.css", "popup/popup.js",
 ];

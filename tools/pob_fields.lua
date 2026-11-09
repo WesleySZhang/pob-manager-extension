@@ -42,6 +42,32 @@ local function checkPrompt()
 	end
 end
 
+-- PoB's sidebar text for every stat saved in the build file: buildMode:FormatStat on each <PlayerStat> value, with the
+-- first BuildDisplayStats line for that stat, compact values off, "," thousands and "." decimals; colour codes removed.
+local displayStats = LoadModule("Modules/BuildDisplayStats")
+local statDefs = {}
+for _, d in ipairs(displayStats) do
+	if d.stat and not d.childStat and not statDefs[d.stat] then statDefs[d.stat] = d end
+end
+local function formattedStats(xmlText)
+	main.useCompactValues = false
+	main.showThousandsSeparators = true
+	main.thousandsSeparator = ","
+	main.decimalSeparator = "."
+	local saved = {}
+	for stat, value in xmlText:gmatch('<PlayerStat stat="([^"]+)" value="([^"]+)"') do saved[stat] = tonumber(value) end
+	for stat, value in xmlText:gmatch('<PlayerStat value="([^"]+)" stat="([^"]+)"') do saved[value] = tonumber(stat) end
+	local out = {}
+	for stat, value in pairs(saved) do
+		local def = statDefs[stat]
+		if def and value and value == value then
+			local overCap = def.overCapStat and saved[def.overCapStat] or nil
+			out[stat] = build:FormatStat(def, value, overCap):gsub("%^x%x%x%x%x%x%x", ""):gsub("%^%d", "")
+		end
+	end
+	return out
+end
+
 -- What PoB shows for the current state of the loaded build.
 local function currentFields()
 	local env = build.calcsTab.mainEnv
@@ -69,7 +95,8 @@ end
 
 for path in readFile(LIST_FILE):gmatch("[^\r\n]+") do
 	local ok, err = pcall(function()
-		loadBuildFromXML(readFile(path), "check")
+		local xmlText = readFile(path)
+		loadBuildFromXML(xmlText, "check")
 		checkPrompt()
 		-- Loadouts: the build's loadout drop-down (Build.lua SyncLoadouts), each selected in turn through the
 		-- drop-down's own handler, then recalculated.
@@ -93,6 +120,7 @@ for path in readFile(LIST_FILE):gmatch("[^\r\n]+") do
 		saved.file = path
 		saved.level = build.characterLevel
 		saved.loadouts = loadouts
+		saved.formatted = formattedStats(xmlText)
 		outFile:write(json.encode(saved), "\n")
 	end)
 	if not ok then outFile:write(json.encode({ file = path, error = tostring(err) }), "\n") end

@@ -52,3 +52,19 @@ test("the saved state that is no loadout comes first as 'As saved' in the popup'
   assert.deepEqual(views.map((v) => [v.name, v.saved]), [["As saved", true], ["Leveling", false]]);
   assert.equal(views[0].info.mainSkill, expected["loadouts_unmatched_saved.xml"].mainSkill);
 });
+
+test("sidebar text: every saved stat of every fixture formats exactly as PoB's buildMode:FormatStat", () => {
+  // Reference: headless PoB's FormatStat on each <PlayerStat> value (tools/pob_fields.lua formattedStats), compact
+  // values off, "," thousands, "." decimals. Exact.
+  const { formatStat } = require("../src/statfmt.js");
+  let n = 0;
+  for (const [file, want] of Object.entries(expected)) {
+    const r = readBuild(fs.readFileSync(path.join(dir, file), "utf8"), data);
+    for (const [stat, text] of Object.entries(want.formatted)) {
+      const def = data.statDefs[stat];
+      assert.equal(formatStat(r.stats[stat], def, def.oc ? r.stats[def.oc] : undefined), text, file + " " + stat);
+      n++;
+    }
+  }
+  assert.ok(n > 1500, "compared " + n);
+});

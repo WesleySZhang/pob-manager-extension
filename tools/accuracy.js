@@ -11,6 +11,7 @@ const path = require("path");
 const zlib = require("zlib");
 const { execFileSync } = require("child_process");
 const { readBuild } = require("../src/buildinfo.js");
+const { formatStat } = require("../src/statfmt.js");
 const data = require("../data/pobdata.js");
 
 const root = path.join(__dirname, "..");
@@ -66,9 +67,9 @@ function main() {
   }
 
   const fields = ["className", "ascendancy", "level", "mainSkill", "keystones", "uniques"];
-  let loadoutsCompared = 0;
+  let loadoutsCompared = 0, statsCompared = 0;
   const autoLevelDiffs = [];
-  const mismatches = Object.fromEntries(fields.concat(["loadouts"]).map((f) => [f, []]));
+  const mismatches = Object.fromEntries(fields.concat(["loadouts", "formatting"]).map((f) => [f, []]));
   let compared = 0, pobErrors = 0, readerErrors = 0;
   for (const b of builds) {
     const p = pob.get(b.xmlPath);
@@ -101,13 +102,20 @@ function main() {
         }
       });
     }
+    // Sidebar text: src/statfmt.js on the saved stats vs PoB's own buildMode:FormatStat on the same values.
+    for (const [stat, want] of Object.entries(p.formatted || {})) {
+      const def = data.statDefs[stat];
+      const got = def && r.stats[stat] !== undefined ? formatStat(r.stats[stat], def, def.oc ? r.stats[def.oc] : undefined) : "(missing)";
+      statsCompared++;
+      if (got !== want) mismatches.formatting.push({ b, want: stat + " = " + want, got: got });
+    }
   }
-  console.log("loadouts compared: " + loadoutsCompared);
+  console.log("loadouts compared: " + loadoutsCompared + ", sidebar stats compared: " + statsCompared);
   console.log("Auto-level builds where PoB's estimate differs from the saved level (not a failure): " + autoLevelDiffs.length);
   for (const d of autoLevelDiffs.slice(0, 5)) console.log("     " + d);
   let failed = pobErrors + readerErrors;
   console.log("compared " + compared + ", PoB load errors " + pobErrors + ", reader errors " + readerErrors);
-  for (const f of fields.concat(["loadouts"])) {
+  for (const f of fields.concat(["loadouts", "formatting"])) {
     const list = mismatches[f];
     failed += list.length;
     console.log((list.length ? "FAIL " : "ok   ") + f + ": " + list.length + " mismatches");

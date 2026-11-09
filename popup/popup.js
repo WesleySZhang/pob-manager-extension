@@ -6,6 +6,8 @@
   const F = globalThis.PobFilter;
   const B = globalThis.PobBuildInfo;
   const LEAGUES = globalThis.PobLeagues || [];
+  const D = globalThis.PobDetails;
+  const DATA = globalThis.PobData;
   const $ = (id) => document.getElementById(id);
 
   let builds = [];
@@ -13,6 +15,7 @@
   const viewChoice = {}; // build key -> view index picked in its Loadout drop-down (this popup session)
   let editing = null; // key of the build whose editor is open
   let confirmDelete = null;
+  const expanded = new Set(); // keys of the rows open in this popup session
   let keyOptions = null; // the latest filter options, for the keystone and unique type-aheads
 
   // ---------- storage of the popup's own state ----------
@@ -144,10 +147,12 @@
     const star = el("button", { type: "button", class: "star" + (fav ? " on" : ""), text: fav ? "★" : "☆",
       title: fav ? "Remove from favorites" : "Add to favorites", "aria-pressed": fav ? "true" : "false",
       onclick: (e) => { e.stopPropagation(); send({ type: "edit", key: b.key, changes: { favorite: !fav } }).then(reload); } });
+    const league = B.leagueAt(b.lastSeen, LEAGUES);
     const line1 = el("div", { class: "line" }, [star, name,
-      el("button", { class: "icon", type: "button", title: "Edit name, creator, main skill and default loadout", text: "✎", onclick: (e) => { e.stopPropagation(); editing = editing === b.key ? null : b.key; render(); } }),
+      el("button", { class: "icon", type: "button", title: "Edit name, creator, main skill and default loadout", text: "✎", onclick: (e) => { e.stopPropagation(); editing = editing === b.key ? null : b.key; if (editing) expanded.add(b.key); render(); } }),
       b.creator ? el("span", { class: "by", text: "by " + b.creator }) : null,
-      el("span", { class: "site", text: b.label })]);
+      el("span", { class: "site", text: b.label + " · " + shortDate(b.lastSeen),
+        title: "Last visited " + new Date(b.lastSeen).toLocaleString() + (league ? " (during " + league + ")" : "") + " · " + b.visits + " visit" + (b.visits === 1 ? "" : "s") })]);
 
     let line2;
     if (b.status === "pending") line2 = el("div", { class: "line meta", text: "Reading build…" });
@@ -170,26 +175,64 @@
         title: stats ? "As exported: " + (b.info.dpsStat || "no DPS stat") : "Stats exist only for the loadout the build was saved on" }));
       parts.push(el("span", { text: "· " + (stats ? F.formatAmount(b.info.life) : "—") + " Life" }));
       if (stats && b.info.es >= 1) parts.push(el("span", { text: "· " + F.formatAmount(b.info.es) + " ES" }));
-      const league = B.leagueAt(b.lastSeen, LEAGUES);
-      parts.push(el("span", { class: "date", text: shortDate(b.lastSeen), title: "Last visited " + new Date(b.lastSeen).toLocaleString() + (league ? " (during " + league + ")" : "") + " · " + b.visits + " visit" + (b.visits === 1 ? "" : "s") }));
       line2 = el("div", { class: "line meta" }, parts);
     }
 
-    const actions = el("div", { class: "actions" }, [
-      views.length > 1 ? el("select", { class: "loadout", title: "Loadout", onclick: (e) => e.stopPropagation(),
-        onchange: (e) => { viewChoice[b.key] = Number(e.target.value); render(); } },
-        views.map((v, i) => { const o = el("option", { value: String(i), text: "Loadout: " + v.name + (v.saved ? " (saved)" : "") }); if (i === vi) o.selected = true; return o; })) : null,
-      el("span", { class: "spacer" }),
-      b.status === "error" ? el("button", { type: "button", text: "Retry", onclick: (e) => { e.stopPropagation(); send({ type: "retry", key: b.key }).then(reload); } }) : null,
-      el("button", { type: "button", text: "Open in PoB", title: b.pobUri, onclick: (e) => { e.stopPropagation(); ext.tabs.create({ url: b.pobUri }); } }),
-      el("button", { type: "button", text: "Copy link", onclick: (e) => { e.stopPropagation(); navigator.clipboard.writeText(b.link).then(() => { e.target.textContent = "Copied"; }); } }),
-      el("button", { type: "button", class: "danger", text: confirmDelete === b.key ? "Confirm delete" : "Delete",
-        onclick: (e) => { e.stopPropagation(); if (confirmDelete !== b.key) { confirmDelete = b.key; render(); return; } confirmDelete = null; send({ type: "delete", key: b.key }).then(reload); } }),
-    ]);
-
-    const children = [line1, line2, actions];
+    const open = expanded.has(b.key);
+    const children = [line1, line2];
+    if (open) children.push(renderDetails(b, views, vi));
     if (editing === b.key) children.push(renderEditor(b, views, vi));
-    return el("div", { class: "build", title: b.link, onclick: () => ext.tabs.create({ url: b.link }) }, children);
+    const toggle = () => { if (open) expanded.delete(b.key); else expanded.add(b.key); render(); };
+    return el("div", { class: "build" + (open ? " open" : ""), "data-link": b.link, tabindex: "0", role: "button", "aria-expanded": open ? "true" : "false",
+      onclick: toggle, onkeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); toggle(); } } }, children);
+  }
+
+  /** The expanded part: actions, then PoB's left-panel stats for the loadout on show, then what the build holds. */
+  function renderDetails(b, views, vi) {
+    const view = views[vi];
+    const stop = (e) => e.stopPropagation();
+    const actions = el("div", { class: "actions" }, [
+      el("button", { type: "button", class: "primary", text: "Open link", title: b.link, onclick: (e) => { stop(e); ext.tabs.create({ url: b.link }); } }),
+      el("button", { type: "button", text: "Open in PoB", title: b.pobUri, onclick: (e) => { stop(e); ext.tabs.create({ url: b.pobUri }); } }),
+      el("button", { type: "button", text: "Copy link", onclick: (e) => { stop(e); navigator.clipboard.writeText(b.link).then(() => { e.target.textContent = "Copied"; }); } }),
+      b.status === "error" ? el("button", { type: "button", text: "Retry", onclick: (e) => { stop(e); send({ type: "retry", key: b.key }).then(reload); } }) : null,
+      el("span", { class: "spacer" }),
+      el("button", { type: "button", class: "danger", text: confirmDelete === b.key ? "Confirm delete" : "Delete",
+        onclick: (e) => { stop(e); if (confirmDelete !== b.key) { confirmDelete = b.key; render(); return; } confirmDelete = null; send({ type: "delete", key: b.key }).then(reload); } }),
+    ]);
+    const parts = [actions];
+    if (!view) return el("div", { class: "details", onclick: stop }, parts);
+    const info = view.info;
+
+    if (views.length > 1) {
+      parts.push(el("div", { class: "loadout-row" }, [el("select", { class: "loadout", title: "Loadout",
+        onchange: (e) => { viewChoice[b.key] = Number(e.target.value); render(); } },
+        views.map((v, i) => { const o = el("option", { value: String(i), text: "Loadout: " + v.name + (v.saved ? " (saved)" : "") + (v.name === b.defaultView ? " (default)" : "") }); if (i === vi) o.selected = true; return o; }))]));
+    }
+
+    const ms = F.mainSkillOf(b, view);
+    const facts = [
+      ["Class", [info.className, info.ascendancy].filter(Boolean).join(" · ") + (info.bloodline ? " · " + info.bloodline : "")],
+      ["Main skill", (ms.skill || "—") + (ms.pob && ms.pob !== ms.skill ? " (PoB: " + ms.pob + ")" : "")],
+      ["Tree", (info.patchLabel || info.patch || "?") + (B.leagueForPatch(info.patch, LEAGUES) ? " · " + B.leagueForPatch(info.patch, LEAGUES) : "")],
+      ["Level", b.info.level ? String(b.info.level) : "—"],
+      ["Visited", b.visits + "× · first " + shortDate(b.firstSeen) + " · last " + shortDate(b.lastSeen)],
+    ];
+    parts.push(el("div", { class: "facts" }, [].concat(...facts.map(([k, v]) => [el("span", { class: "k", text: k }), el("span", { text: v })]))));
+
+    if (view.saved) {
+      const sections = D.statSections(b.info, DATA.statDefs);
+      parts.push(el("div", { class: "stats" }, sections.map((s) => el("div", { class: "section" }, [el("div", { class: "section-title", text: s.title })]
+        .concat(s.rows.map((r) => el("div", { class: "stat", "data-stat": r.stat }, [el("span", { class: "k", text: r.label }), el("span", { class: "v", text: r.value })])))))));
+      parts.push(el("div", { class: "note", text: "Stats as PoB saved them" + (b.info.dpsStat ? " (DPS: " + (DATA.statDefs[b.info.dpsStat] ? DATA.statDefs[b.info.dpsStat].l : b.info.dpsStat) + ")" : "") + ", with the uploader's configuration." }));
+    } else {
+      parts.push(el("div", { class: "note", text: "Stats exist only for the loadout the build was saved on" + (views.find((v) => v.saved) ? " (" + views.find((v) => v.saved).name + ")" : "") + "." }));
+    }
+
+    const list = (title, items) => (items && items.length ? el("div", { class: "list" }, [el("span", { class: "section-title", text: title })]
+      .concat(items.map((x) => el("span", { class: "chip", text: x })))) : null);
+    parts.push(list("Keystones", info.keystones), list("Uniques", info.uniques), list("Skills", info.activeSkills));
+    return el("div", { class: "details", onclick: stop }, parts);
   }
 
   /** Name, creator, the main skill of the loadout on show, and the default loadout. */

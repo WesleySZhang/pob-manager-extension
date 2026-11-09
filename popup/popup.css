@@ -62,19 +62,38 @@ details[open] summary { margin-bottom: 6px; }
 .chip button { border: 0; background: transparent; padding: 0 4px; color: var(--muted); }
 .clear { text-align: right; margin-top: 6px; }
 
-#list { overflow-y: auto; max-height: 420px; }
+#list { overflow-y: auto; max-height: 440px; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
 
 .build {
-  padding: 7px 12px 8px; border-bottom: 1px solid var(--line); cursor: pointer; position: relative;
+  padding: 4px 12px 5px; border-bottom: 1px solid var(--line); cursor: pointer; position: relative;
   border-left: 3px solid transparent;
 }
-.build:hover { background: var(--panel); border-left-color: var(--accent); }
+.build:hover, .build.open { background: var(--panel); border-left-color: var(--accent); }
+.build:focus-visible { outline: 1px solid var(--focus); outline-offset: -1px; }
 .line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.meta { white-space: nowrap; overflow: hidden; flex-wrap: nowrap; }
+
+/* Expanded row: actions, facts, PoB's left-panel stats in two columns, lists. */
+.details { cursor: default; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 12px; }
+.details .actions { margin-top: 0; }
+.loadout-row { margin-top: 6px; }
+.loadout-row select { font-size: 12px; padding: 2px 6px; max-width: 100%; }
+.facts { display: grid; grid-template-columns: 74px 1fr; gap: 2px 8px; margin-top: 6px; }
+.facts .k, .stat .k { color: var(--muted); }
+.stats { columns: 2; column-gap: 18px; margin-top: 8px; }
+.section { break-inside: avoid; margin-bottom: 6px; }
+.section-title { color: var(--accent); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; display: block; margin-bottom: 2px; }
+.stat { display: flex; justify-content: space-between; gap: 8px; line-height: 1.4; }
+.stat .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.note { color: var(--muted); font-style: italic; margin-top: 4px; }
+.list { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; }
+.list .section-title { width: 100%; margin-bottom: 0; }
+.list .chip { padding: 1px 8px; }
 .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .by { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .site { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
-.meta { color: var(--muted); font-size: 12px; margin-top: 2px; flex-wrap: wrap; }
+.meta { color: var(--muted); font-size: 12px; margin-top: 1px; }
 .meta .skill { color: var(--text); }
 .meta .dps { color: var(--accent); }
 .date { margin-left: auto; white-space: nowrap; }

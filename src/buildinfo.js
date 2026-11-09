@@ -276,7 +276,10 @@
     return String(id + (base << 4));
   }
 
+  /** A saved number. PoB writes math.huge as "inf" (Lua tostring), e.g. a max hit you're immune to; "nan" is dropped. */
   function num(v) {
+    if (v === "inf") return Infinity;
+    if (v === "-inf") return -Infinity;
     const n = Number(v);
     return Number.isFinite(n) ? n : undefined;
   }
@@ -564,7 +567,7 @@
   }
 
   // Bumped whenever readBuild gains or changes a field; stored builds read by an older version are read again.
-  const READER_VERSION = 2;
+  const READER_VERSION = 3; // 3: saved stats keep "inf" (Infinity)
 
   const api = { READER_VERSION, isDamageSkill, readBuild, resolveGem, groupSkills, defaultName, leagueForPatch, leagueAt, patchOf, comparePatchDesc, activeItemLines, equippedItemIds };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

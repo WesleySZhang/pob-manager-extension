@@ -43,6 +43,8 @@ function check(cond, msg) {
     await page.goto(builds[0], { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
 
     const popup = await browser.newPage();
+    popup.on("pageerror", (e) => console.log("     popup error: " + e.message));
+    popup.on("console", (m) => { if (m.type() === "error") console.log("     popup console: " + m.text()); });
     await popup.setViewport({ width: 560, height: 600 });
     await popup.goto("chrome-extension://" + extId + "/popup/popup.html");
     await popup.waitForFunction((n) => {
@@ -91,8 +93,8 @@ function check(cond, msg) {
     await popup.$eval("#search", (e) => { e.value = ""; e.dispatchEvent(new Event("input")); });
     // Our main skill pick, then a main skill and a default loadout set by hand (only when the default build list is used).
     if (builds.includes("https://pobb.in/2FlZU8rRPp3F")) {
-      const rowText = () => popup.$$eval(".build", (els) => { const r = els.find((e) => e.title === "https://pobb.in/2FlZU8rRPp3F"); return r && r.innerText.replace(/\s+/g, " "); });
-      const openEditor = () => popup.$$eval(".build", (els) => els.find((e) => e.title === "https://pobb.in/2FlZU8rRPp3F").querySelector("button.icon").click());
+      const rowText = () => popup.$$eval(".build", (els) => { const r = els.find((e) => e.dataset.link === "https://pobb.in/2FlZU8rRPp3F"); return r && r.innerText.replace(/\s+/g, " "); });
+      const openEditor = () => popup.$$eval(".build", (els) => els.find((e) => e.dataset.link === "https://pobb.in/2FlZU8rRPp3F").querySelector("button.icon").click());
       check(/^[☆★]? ?Static Strike Slayer/.test(await rowText()), "the Ambush-saved build is named Static Strike Slayer");
       await openEditor();
       await popup.waitForSelector(".editor select.main-skill");
@@ -106,23 +108,50 @@ function check(cond, msg) {
       await popup.select(".editor select.default-loadout", "Endgame Red Maps");
       await popup.click(".editor button.primary");
       await popup.waitForFunction(() => !document.querySelector(".editor"));
-      await popup.waitForFunction(() => Array.from(document.querySelectorAll(".build")).some((r) => r.title === "https://pobb.in/2FlZU8rRPp3F" &&
-        r.querySelector("select.loadout") && r.querySelector("select.loadout").selectedOptions[0].textContent === "Loadout: Endgame Red Maps"), { timeout: 10000 });
+      await popup.waitForFunction(() => Array.from(document.querySelectorAll(".build")).some((r) => r.dataset.link === "https://pobb.in/2FlZU8rRPp3F" &&
+        r.querySelector("select.loadout") && r.querySelector("select.loadout").selectedOptions[0].textContent.startsWith("Loadout: Endgame Red Maps")), { timeout: 10000 });
       const row = await rowText();
       console.log("     row: " + row);
       check(/^[☆★]? ?Static Strike Slayer/.test(row), "the default loadout (Endgame Red Maps) is shown first and names the build");
     }
+    // Clicking a row expands it (no new tab) to PoB's left-panel stats; "Open link" opens the share page.
+    const tabsBefore = (await browser.pages()).length;
+    // The rename step above opened this row's editor (✎), which expands the row: collapse it first.
+    const rowOpen = () => popup.$$eval(".build", (els) => els.find((e) => e.dataset.link === "https://poe.ninja/poe1/pob/934b3").classList.contains("open"));
+    const clickRow = () => popup.$$eval(".build", (els) => els.find((e) => e.dataset.link === "https://poe.ninja/poe1/pob/934b3").querySelector(".meta").click());
+    if (await rowOpen()) { await clickRow(); await popup.waitForFunction(() => !document.querySelector('.build.open[data-link="https://poe.ninja/poe1/pob/934b3"]')); }
+    await clickRow();
+    await popup.waitForFunction(() => document.querySelector('.build.open[data-link="https://poe.ninja/poe1/pob/934b3"] .details .stats'), { timeout: 5000 });
+    const detail = await popup.$eval('.build.open[data-link="https://poe.ninja/poe1/pob/934b3"]', (r) => ({
+      stats: Object.fromEntries(Array.from(r.querySelectorAll(".stat")).map((s) => [s.dataset.stat, s.querySelector(".v").textContent])),
+      buttons: Array.from(r.querySelectorAll(".details .actions button")).map((x) => x.textContent),
+    }));
+    console.log("     expanded: " + JSON.stringify(detail.stats).slice(0, 300) + "…");
+    check((await browser.pages()).length === tabsBefore, "clicking a row expands it and opens no tab");
+    check(detail.stats.FireResist === "75% (+16%)" && detail.stats.ChaosMaximumHitTaken === "Immune" && detail.stats.FrenzyChargesMax === "12 / 12",
+      "expanded row shows resistances with over-cap, max hits (CI: chaos Immune) and charges");
+    check(["EffectiveBlockChance", "EffectiveSpellBlockChance", "EffectiveSpellSuppressionChance", "Armour", "Evasion", "PhysicalMaximumHitTaken"].every((k) => k in detail.stats),
+      "block, spell block, suppression, armour, evasion and phys max hit are listed");
+    check(detail.buttons[0] === "Open link", "the row has an Open link button");
+    const opened = new Promise((resolve) => browser.once("targetcreated", (t) => resolve(t.url())));
+    await popup.$eval('.build.open[data-link="https://poe.ninja/poe1/pob/934b3"] .details .actions button.primary', (b) => b.click());
+    check((await opened).startsWith("https://poe.ninja/poe1/pob/934b3"), "Open link opens the share page");
+    await popup.bringToFront();
+    await popup.$eval('.build.open[data-link="https://poe.ninja/poe1/pob/934b3"] .meta', (m) => m.click());
+    await popup.waitForFunction(() => !document.querySelector('.build.open[data-link="https://poe.ninja/poe1/pob/934b3"]'));
+    check(true, "clicking again collapses it");
+
     // Favorites: the filter with none, star one build, the filter shows just that one.
     await popup.click("#favorites");
     await popup.waitForFunction(() => /No favorites yet/.test(document.getElementById("list").textContent));
     check(true, "favorites filter with nothing starred says so");
     await popup.click("#favorites");
     await popup.waitForFunction((n) => document.querySelectorAll(".build").length === n, {}, builds.length);
-    await popup.$$eval(".build", (els) => els.find((e) => e.title === "https://pobb.in/agb0V8xT8c-j").querySelector("button.star").click());
+    await popup.$$eval(".build", (els) => els.find((e) => e.dataset.link === "https://pobb.in/agb0V8xT8c-j").querySelector("button.star").click());
     await popup.waitForFunction(() => document.querySelectorAll(".build button.star.on").length === 1);
     await popup.click("#favorites");
     await popup.waitForFunction(() => document.querySelectorAll(".build").length === 1);
-    check((await popup.$eval(".build", (e) => e.title)) === "https://pobb.in/agb0V8xT8c-j", "starred build is the only one under Favorites");
+    check((await popup.$eval(".build", (e) => e.dataset.link)) === "https://pobb.in/agb0V8xT8c-j", "starred build is the only one under Favorites");
     await popup.screenshot({ path: shot, fullPage: true });
     await popup.click("#favorites");
     console.log("screenshot: " + path.relative(root, shot));

@@ -35,8 +35,12 @@ site it came from.
 
 - Patch drop-down (with the league), class and ascendancy drop-downs, search by name, creator or gem, sort.
 - More filters: creator, DPS and Life ranges (`1.5m`, `800k`), keystones and uniques.
-- Per build: rename it, note who made it, switch between its PoB loadouts, open the link, open it in PoB
-  (`pob://` link), copy the link, delete.
+- Each build is a two-line row. **Click it to expand** it: buttons to open the link, open it in PoB (`pob://` link),
+  copy the link and delete; the Loadout drop-down; and Path of Building's left panel for the build as saved, with PoB's
+  own labels and numbers: DPS lines, max hits (phys, fire, cold, lightning, chaos), EHP, life, mana, ES and regen,
+  armour, evasion, block, spell block, spell suppression, resistances with over-cap, attributes, movement speed and
+  charges. Keystones, uniques and skills are listed below.
+- ✎ on a row: rename it, note who made it, set its main skill or default loadout.
 - DPS is "as exported": what PoB calculated with the uploader's settings. Only the loadout the build was saved on has stats.
 - **Main skill.** PoB's main skill is whichever skill group the author left selected, so a Static Strike build saved on
   Ambush shows as "Ambush" in PoB and on pobb.in. When PoB's main skill deals no damage (movement, aura, herald, guard,
@@ -74,7 +78,7 @@ running headless (PoE-Sim's pinned checkout and LuaJIT build):
 | Command | What it checks |
 | --- | --- |
 | `npm test` | Unit tests, plus every fixture build in `test/fixtures/golden` against the fields headless PoB showed for it (`expected.json`), loadouts included. |
-| `npm run accuracy` | The reader vs headless PoB on real builds (default: PoE-Sim's poe.ninja sweep and golden builds): class, ascendancy, level, main skill, keystones, uniques, and every loadout. Exact match. |
+| `npm run accuracy` | The reader vs headless PoB on real builds (default: PoE-Sim's poe.ninja sweep and golden builds): class, ascendancy, level, main skill, keystones, uniques, every loadout, and the sidebar text of every saved stat (vs PoB's own `FormatStat`). Exact match. |
 | `node tools/main_skill_review.js` | After `npm run accuracy`: every build where our main skill pick differs from PoB's, to review by hand. |
 | `npm run e2e:edge` | Real Edge with the extension: visits share links and pages that must be ignored, then uses the popup. |
 | `npm run e2e:firefox` | Real Firefox with a test copy of the extension: records a share link, ignores the ladder, renames through the popup. |
