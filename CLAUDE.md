@@ -39,10 +39,12 @@ Owner: Wesley. How it works and how to test it: `README.md`.
 
 ## Git
 
-- **Wesley is the only author.** No `Co-Authored-By` lines or other Claude attribution.
 - **Short commit messages:** one line, imperative, no body unless it's really needed ("Add Lua state round-trip tests").
 - **Commit at bigger milestones:** a finished feature, a merged batch of work, a batch of decisions. Not every small fix.
   Notes-vault edits go in with the milestone.
 - **Never push without asking Wesley first**, and push rarely: batch work into a few commits, then ask at a natural checkpoint.
   Plan approval is not push approval. Never force-push without explicit approval.
+- **A push to main with a new version is a public release** (`.github/workflows/release.yml`: Mozilla signs it, a GitHub
+  release goes out, installed Firefox copies update). Bump the version (`npm run bump -- X.Y.Z`) only when Wesley asks for a
+  release, and say so when asking to push.
 - **No real account or character names in tracked files.** Real builds go in `.local/` (gitignored); tests use made-up names.

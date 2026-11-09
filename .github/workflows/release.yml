@@ -1,34 +1,68 @@
-# Pushing a tag "vX.Y.Z" publishes a GitHub release with:
+# A push to main whose version (manifest.base.json, package.json) has no release yet publishes release "vX.Y.Z"
+# (tagging that commit) with:
 #   - the Firefox add-on, signed by Mozilla as an unlisted (self-distributed) add-on: a .xpi that installs
 #     by dragging it onto Firefox;
 #   - the Chrome/Edge zip, loaded with Developer mode -> Load unpacked.
 # Needs two repository secrets from addons.mozilla.org -> Developer Hub -> Tools -> Manage API Keys:
 #   AMO_JWT_ISSUER (the "JWT issuer") and AMO_JWT_SECRET (the "JWT secret"). The pair belongs to the Mozilla
 #   account, not to this add-on: PoE-Ninja-Extension uses the same pair, and regenerating it means updating both repos.
-# Mozilla signs each version number once (across listed and unlisted), so bump the version for every release.
-# Same steps as PoE-Ninja-Extension's release workflow.
+# Mozilla signs each version number once (across listed and unlisted): a release that fails after signing can't be
+# rerun with the same version, so bump it (npm run bump -- X.Y.Z) and push again.
+# Same steps as PoE-Ninja-Extension's release workflow, which releases on a pushed tag instead.
 name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch: # rerun by hand, e.g. after a failure before signing
 
 permissions:
-  contents: write # create the release
-  pages: write    # publish updates.json + the .xpi for Firefox's automatic updates
-  id-token: write # required by actions/deploy-pages
+  contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release # one release at a time; a second push waits instead of signing the same version twice
+  cancel-in-progress: false
 
 jobs:
-  release:
+  # Decides whether this push carries a new version: the release job (and its Pages deployment) only runs if so.
+  check:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.released.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the version; the files must agree
+        id: version
+        run: |
+          V=$(node -p "require('./manifest.base.json').version")
+          echo "version=$(node tools/release_version.js "v$V")" >> "$GITHUB_OUTPUT"
+      - name: Release only a version without a release
+        id: released
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$V" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "v$V is already released: nothing to do"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$V has no release yet: releasing"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    needs: check
+    if: needs.check.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release and its tag
+      pages: write    # publish updates.json + the .xpi for Firefox's automatic updates
+      id-token: write # required by actions/deploy-pages
     environment:
       name: github-pages
       url: ${{ steps.pages.outputs.page_url }}
     env:
-      TAG: ${{ github.ref_name }}
       SLUG: pob-manager-extension
     steps:
       - uses: actions/checkout@v4
@@ -38,9 +72,9 @@ jobs:
           cache: npm
       - run: npm ci
 
-      - name: Check the tag matches the version in the files
+      - name: The version to release
         id: version
-        run: echo "version=$(node tools/release_version.js "$TAG")" >> "$GITHUB_OUTPUT"
+        run: echo "version=${{ needs.check.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/pob-source
       - run: npm run test:ci
@@ -86,7 +120,8 @@ jobs:
           Then open any Path of Building share link (pobb.in, poe.ninja, Maxroll, pob.codes, poedb, Pastebin, Rentry)
           and click the PoB Manager button in the toolbar.
           EOF
-          gh release create "$TAG" release/* --title "v$V" --notes-file notes.md --generate-notes --verify-tag
+          # Tags the commit this run built (not whatever main is by now).
+          gh release create "v$V" release/* --target "$GITHUB_SHA" --title "v$V" --notes-file notes.md --generate-notes
 
       # Firefox's automatic updates: installed copies read updates.json from the update_url in the manifest
       # (https://wesleyszhang.github.io/pob-manager-extension/updates.json) once a day.

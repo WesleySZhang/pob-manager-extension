@@ -88,26 +88,28 @@ npm run lint:firefox   # Mozilla's add-on linter on dist/firefox
 
 ## Releasing
 
-Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: the CI checks, Mozilla signing (unlisted, for
-self-distribution), a GitHub release with the signed `.xpi` and the Chrome/Edge zip, and `updates.json` on GitHub Pages
-(`https://wesleyszhang.github.io/pob-manager-extension/updates.json`), which installed Firefox copies check daily.
+A push to `main` whose version has no GitHub release yet releases it (`.github/workflows/release.yml`): the CI checks,
+Mozilla signing (unlisted, for self-distribution), a GitHub release `vX.Y.Z` tagging that commit with the signed `.xpi`
+and the Chrome/Edge zip, and `updates.json` on GitHub Pages
+(`https://wesleyszhang.github.io/pob-manager-extension/updates.json`), which installed Firefox copies check daily. A
+push with an already-released version only runs CI.
 
 ```
 npm run bump -- 0.2.0
 git commit -am "Release 0.2.0"
-git tag v0.2.0
-git push origin main v0.2.0
+git push origin main
 ```
 
-Mozilla signs each version number only once, so every release needs a new version. Chrome and Edge copies loaded with
+Mozilla signs each version number only once, so every release needs a new version. If a release fails after signing,
+bump again; if it fails before, rerun it from the Actions tab (Release → Run workflow). Chrome and Edge copies loaded with
 Load unpacked don't update; users replace the folder.
 
 ### One-time setup
 
 1. The repo must be public (GitHub Pages and downloadable releases).
 2. Settings → Pages → Source: **GitHub Actions**.
-3. Settings → Environments → `github-pages` → Deployment branches and tags: add the tag rule `v*`
-   (by default only `main` may deploy, and releases run from tags).
+3. Settings → Environments → `github-pages` → Deployment branches and tags: `main` must be allowed (it is by default;
+   releases deploy from `main`).
 4. Settings → Secrets and variables → Actions: `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, from addons.mozilla.org →
    Developer Hub → Tools → Manage API Keys (`gh secret set AMO_JWT_ISSUER` asks for the value without echoing it). The
    pair belongs to the Mozilla account, so PoE-Ninja-Extension uses the same one: regenerating it means updating both.

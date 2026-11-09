@@ -38,9 +38,23 @@ test("the release workflow copies the files tools/build.js and tools/updates_jso
   const fs = require("fs");
   const path = require("path");
   const { packageNames } = require("../tools/build.js");
-  const yml = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "release.yml"), "utf8");
+  const yml = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "release.yml"), "utf8").replace(/\r\n/g, "\n"); // CRLF in a Windows checkout
   const slug = /^\s+SLUG: (\S+)$/m.exec(yml)[1];
   assert.equal(xpiName("1.2.3"), slug + "-1.2.3-firefox.xpi");
   assert.ok(yml.includes('"dist/packages/' + packageNames("$V").chrome + '"'), "release.yml copies " + packageNames("$V").chrome);
   assert.ok(yml.includes(UPDATE_URL), "release.yml's comment names the update URL");
+});
+
+test("the release workflow releases a new version pushed to main, once, tagging the commit it built", () => {
+  // A push to main is the release trigger (README "Releasing"): a version that already has a release must not be signed
+  // again (Mozilla signs a version once), and the tag must point at the commit the files came from.
+  const fs = require("fs");
+  const path = require("path");
+  const yml = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "release.yml"), "utf8").replace(/\r\n/g, "\n"); // CRLF in a Windows checkout
+  assert.match(yml, /^on:\n  push:\n    branches: \[main\]\n/m);
+  assert.ok(!/tags:/.test(yml.split("jobs:")[0]), "no tag trigger: a tag push would release a second time");
+  assert.match(yml, /gh release view "v\$V"/, "skips a version that already has a release");
+  assert.match(yml, /if: needs\.check\.outputs\.release == 'true'/, "the release job only runs for a new version");
+  assert.match(yml, /gh release create "v\$V" release\/\* --target "\$GITHUB_SHA"/);
+  assert.match(yml, /node tools\/release_version\.js "v\$V"/, "manifest.base.json and package.json must agree");
 });
