@@ -7,6 +7,7 @@
   const B = globalThis.PobBuildInfo;
   const LEAGUES = globalThis.PobLeagues || [];
   const D = globalThis.PobDetails;
+  const V = globalThis.PobBuildView;
   const DATA = globalThis.PobData;
   const $ = (id) => document.getElementById(id);
 
@@ -159,24 +160,8 @@
     if (b.status === "pending") line2 = el("div", { class: "line meta", text: "Reading build…" });
     else if (b.status === "error" || !info) line2 = el("div", { class: "line meta" }, [el("span", { class: "error", text: b.error || "Could not read this build" })]);
     else {
-      const parts = [];
-      parts.push(el("span", { text: (info.ascendancy || info.className || "?") + (b.info.level ? " · Lv " + b.info.level : "") }));
-      const ms = F.mainSkillOf(b, view);
-      if (ms.skill) {
-        const note = ms.source === "manual" ? "Main skill set by you" + (ms.pob ? " · PoB's main skill: " + ms.pob : "")
-          : ms.source === "auto" ? "PoB's main skill is " + (ms.pob || "none") + " (a utility skill); this is the damage skill with the most supports"
-          : "PoB's main skill";
-        parts.push(el("span", { class: "skill" + (ms.source === "manual" ? " manual" : ""), text: "· " + ms.skill, title: note }));
-      }
-      if (info.ruthless) parts.push(el("span", { class: "tag", text: "Ruthless" }));
-      if (info.alternate) parts.push(el("span", { class: "tag", text: "Alternate" }));
-      if (info.patch) parts.push(el("span", { class: "tag", text: info.patch, title: "Patch from the passive tree: " + (info.patchLabel || info.patch) }));
-      // The saved stats, whichever loadout is the default: PoB saves stats for the saved loadout only.
-      const from = savedFrom(views);
-      parts.push(el("span", { class: "dps", text: "· " + F.formatAmount(b.info.dps) + " DPS",
-        title: "As exported: " + (b.info.dpsStat || "no DPS stat") + from }));
-      parts.push(el("span", { text: "· " + F.formatAmount(b.info.life) + " Life", title: "As exported" + from }));
-      if (b.info.es >= 1) parts.push(el("span", { text: "· " + F.formatAmount(b.info.es) + " ES", title: "As exported" + from }));
+      const KIND = { skill: "skill", manual: "skill manual", tag: "tag", dps: "dps" };
+      const parts = V.summaryParts(b, view).map((p) => el("span", { class: KIND[p.kind] || "", text: p.text, title: p.title || "" }));
       line2 = el("div", { class: "line meta" }, parts);
     }
 
@@ -204,11 +189,7 @@
     }
   }
 
-  /** " (loadout X)" naming the saved loadout the stats belong to, when the build has loadouts. */
-  function savedFrom(views) {
-    const v = views.length > 1 ? views.find((x) => x.saved) : null;
-    return v ? " (loadout " + v.name + ")" : "";
-  }
+  const savedFrom = V.savedFrom;
 
   /** The expanded part: actions, then PoB's left-panel stats for the loadout on show, then what the build holds. */
   function renderDetails(b, views, vi) {
@@ -257,25 +238,15 @@
   /** Name, creator, the main skill of the loadout on show, and the default loadout. */
   function renderEditor(b, views, vi) {
     const view = views[vi];
-    const nameIn = el("input", { value: b.customName || "", placeholder: b.info ? F.displayName(Object.assign({}, b, { customName: "" })) : "Name" });
-    const creatorIn = el("input", { value: b.creator || "", placeholder: "Who made the build (optional)" });
-    let skillIn = null, defaultIn = null;
-    if (view) {
-      const auto = view.info.autoMainSkill || view.info.mainSkill;
-      const manual = (b.mainSkills && b.mainSkills[view.name]) || "";
-      skillIn = el("select", { class: "main-skill" }, [el("option", { value: "", text: "Automatic" + (auto ? " (" + auto + ")" : "") })]
-        .concat((view.info.activeSkills || []).map((s) => el("option", { value: s, text: s }))));
-      skillIn.value = manual;
-      if (views.length > 1) {
-        defaultIn = el("select", { class: "default-loadout" }, [el("option", { value: "", text: "As PoB saved it" })]
-          .concat(views.map((v) => el("option", { value: v.name, text: v.name + (v.saved ? " (saved)" : "") }))));
-        defaultIn.value = views.some((v) => v.name === b.defaultView) ? b.defaultView : "";
-      }
-    }
+    const m = V.editorModel(b, vi);
+    const nameIn = el("input", { value: m.name.value, placeholder: m.name.placeholder });
+    const creatorIn = el("input", { value: m.creator.value, placeholder: m.creator.placeholder });
+    const select = (cls, f) => { const s = el("select", { class: cls }, f.options.map(([v, t]) => el("option", { value: v, text: t }))); s.value = f.value; return s; };
+    const skillIn = m.mainSkill ? select("main-skill", m.mainSkill) : null;
+    const defaultIn = m.defaultView ? select("default-loadout", m.defaultView) : null;
     function save() {
-      const changes = { customName: nameIn.value, creator: creatorIn.value };
-      if (skillIn) changes.mainSkill = { view: view.name, skill: skillIn.value };
-      if (defaultIn) changes.defaultView = defaultIn.value;
+      const changes = V.editChanges(m, { name: nameIn.value, creator: creatorIn.value,
+        mainSkill: skillIn && skillIn.value, defaultView: defaultIn && defaultIn.value });
       send({ type: "edit", key: b.key, changes: changes }).then(function (r) {
         if (r.ok) { editing = null; }
         reload();

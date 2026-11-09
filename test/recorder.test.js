@@ -265,3 +265,34 @@ test("429 Too Many Requests: one retry after Retry-After (2 s without it, at mos
   a = await attempt([[429, "1"], [429, "1"], [200, null]]);
   assert.deepEqual([a.r.status, a.r.error, a.calls], ["error", "pobb.in returned HTTP 429", 2]);
 });
+
+test("lookup: the stored build for a page address, as the page box asks for it", async () => {
+  // The page box (src/page.js) shows only stored builds of share links: any form of the link finds the record, a page
+  // that isn't a share link or a link without a build finds nothing, and a share link not yet stored has no record.
+  const { rec, fetch } = await setup({ [RAW]: CODE });
+  assert.deepEqual(await rec.lookup(LINK), { key: "pobbin:abc123", record: null }, "a share link before its visit is stored");
+  await rec.visit(LINK);
+  const found = await rec.lookup(LINK + "?utm=x#top");
+  assert.equal(found.key, "pobbin:abc123");
+  assert.equal(found.record.status, "ok");
+  assert.equal(found.record.info.mainSkill, "Arc");
+  assert.equal(await rec.lookup("https://poe.ninja/poe1/builds"), null, "not a share link");
+  assert.equal(await rec.lookup(""), null);
+  assert.equal(await rec.lookup("not a url"), null);
+  await rec.visit("https://pobb.in/missing1"); // 404: remembered as not a build
+  assert.equal(await rec.lookup("https://pobb.in/missing1"), null, "a link that holds no build");
+  const before = fetch.calls.length;
+  await rec.lookup(LINK);
+  assert.equal(fetch.calls.length, before, "lookup never downloads");
+});
+
+test("lookup sees edits and deletes made elsewhere (the popup)", async () => {
+  const { rec } = await setup({ [RAW]: CODE });
+  await rec.visit(LINK);
+  await rec.edit("pobbin:abc123", { customName: "From the popup", favorite: true });
+  const found = await rec.lookup(LINK);
+  assert.equal(found.record.customName, "From the popup");
+  assert.equal(found.record.favorite, true);
+  await rec.remove("pobbin:abc123");
+  assert.deepEqual(await rec.lookup(LINK), { key: "pobbin:abc123", record: null }, "deleted: no box until the next visit");
+});

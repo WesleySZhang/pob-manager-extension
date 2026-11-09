@@ -164,12 +164,23 @@
       return stale.length;
     }
 
+    /**
+     * The stored build for a page address, for the page box (src/page.js): { key, record } with record null while
+     * the visit isn't stored yet, or null when the address isn't a share link or the link holds no build.
+     */
+    async function lookup(url) {
+      const site = Sites.matchUrl(url);
+      if (!site) return null;
+      if (await deps.store.getNotBuild(site.key)) return null;
+      return { key: site.key, record: (await deps.store.getBuild(site.key)) || null };
+    }
+
     /** Deletes a stored build. A later visit records it again as new. */
     function remove(key) {
       return deps.store.deleteBuild(key);
     }
 
-    return { visit, refresh, edit, remove, upgrade };
+    return { visit, refresh, edit, remove, upgrade, lookup };
   }
 
   const api = { createRecorder, NotABuild };

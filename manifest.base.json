@@ -17,7 +17,9 @@
       "32": "icons/icon-32.png"
     }
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://pobb.in/*",
     "https://poe.ninja/*",
@@ -28,5 +30,27 @@
     "https://pastebin.com/*",
     "https://pastebinp.com/*",
     "https://rentry.co/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://pobb.in/*",
+        "https://poe.ninja/*",
+        "https://maxroll.gg/*",
+        "https://pob.codes/*",
+        "https://poedb.tw/*",
+        "https://pastebin.com/*",
+        "https://pastebinp.com/*",
+        "https://rentry.co/*"
+      ],
+      "js": [
+        "src/xml.js",
+        "src/buildinfo.js",
+        "src/filter.js",
+        "src/buildview.js",
+        "src/page.js"
+      ],
+      "run_at": "document_idle"
+    }
   ]
 }

@@ -247,6 +247,90 @@ function check(cond, msg) {
     const shot2 = shot.replace(/\.png$/, "-expanded.png");
     await popup.screenshot({ path: shot2, fullPage: true });
     console.log("screenshot: " + path.relative(root, shot2));
+
+    // ---------- The page box (src/page.js) on the share page itself ----------
+    const boxLink = builds.includes("https://pobb.in/2FlZU8rRPp3F") ? "https://pobb.in/2FlZU8rRPp3F" : builds[0];
+    // The box's shadow root as a handle: share sites' CSP forbids eval in the page, so predicates are passed as functions
+    // that take the root (a handle argument), never rebuilt from text.
+    const boxRoot = async () => {
+      await page.waitForFunction(() => { const h = document.getElementById("pob-manager-box"); return !!(h && h.shadowRoot); }, { timeout: 15000, polling: 200 });
+      return page.evaluateHandle(() => document.getElementById("pob-manager-box").shadowRoot);
+    };
+    const inBox = async (fn, ...args) => (await boxRoot()).evaluate(fn, ...args);
+    const waitBox = async (fn, ...args) => page.waitForFunction(fn, { timeout: 15000, polling: 200 }, await boxRoot(), ...args);
+    const popupName = () => popup.$eval('.build[data-link="' + boxLink + '"] .name', (n) => n.textContent);
+    await page.setViewport({ width: 1280, height: 900 });
+    // The share-page tab is behind the popup tab: bring it forward, and poll on a timer (background tabs get no
+    // animation frames, which waitForFunction polls on by default).
+    await page.bringToFront();
+    await page.goto(boxLink, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+    await waitBox((root) => root.querySelector(".pill"));
+    check(await inBox((root) => !root.querySelector(".panel") && root.querySelector(".pill").textContent.startsWith("PoB Manager")),
+      "a stored build's share page shows the PoB Manager button, closed");
+    check(await page.evaluate(() => getComputedStyle(document.getElementById("pob-manager-box")).position === "fixed"), "the box is fixed to the corner, outside the site's layout");
+    await inBox((root) => root.querySelector(".pill").click());
+    await waitBox((root) => root.querySelector(".panel .editor"));
+    const boxName = await inBox((root) => root.querySelector(".panel .name").textContent);
+    check(boxName === await popupName(), "the box names the build as the popup does (" + boxName + ")");
+    const boxMeta = await inBox((root) => root.querySelector(".panel .meta").innerText.replace(/\s+/g, " "));
+    console.log("     box: " + boxMeta);
+    check(/DPS/.test(boxMeta) && /Life/.test(boxMeta), "the box shows the build's summary with its saved DPS and Life");
+    if (boxLink === "https://pobb.in/2FlZU8rRPp3F") {
+      check(await inBox((root) => root.querySelector(".default-loadout").value === "Endgame Red Maps" && root.querySelector(".main-skill") !== null),
+        "the box's editor shows the default loadout set in the popup, and the main skill choice");
+    }
+    // Rename and set the creator in the box; the popup follows.
+    await inBox((root) => {
+      const set = (sel, v) => { const i = root.querySelector(sel); i.value = v; i.dispatchEvent(new Event("input", { bubbles: true })); };
+      set(".name-in", "Renamed on the page"); set(".creator-in", "Page Creator");
+      root.querySelector(".editor button.primary").click();
+    });
+    await waitBox((root) => root.querySelector(".panel .name").textContent === "Renamed on the page" && /Saved/.test(root.querySelector(".note").textContent));
+    await popup.waitForFunction((l) => { const n = document.querySelector('.build[data-link="' + l + '"] .name'); return n && n.textContent === "Renamed on the page"; }, { timeout: 10000, polling: 200 }, boxLink);
+    check(await popup.$eval('.build[data-link="' + boxLink + '"] .by', (e) => e.textContent) === "by Page Creator", "a rename and creator saved in the box show in the popup");
+    // Star it in the box; the popup follows.
+    await inBox((root) => root.querySelector(".head button.icon").click());
+    await waitBox((root) => root.querySelector(".head button.icon").textContent === "★" && root.querySelector(".pill .star"));
+    await popup.waitForFunction((l) => document.querySelector('.build[data-link="' + l + '"] button.star.on'), { timeout: 10000, polling: 200 }, boxLink);
+    check(true, "a favorite set in the box shows in the popup, and on the box's button");
+    // An edit in the popup reaches the open page.
+    await popup.$$eval(".build", (els, l) => els.find((e) => e.dataset.link === l).querySelector("button.icon").click(), boxLink);
+    await popup.waitForFunction(() => document.querySelector(".editor input"), { timeout: 10000, polling: 200 });
+    await popup.$eval(".editor input", (i) => { i.value = "Renamed in the popup"; });
+    await popup.$eval(".editor button.primary", (b) => b.click()); // no mouse: the popup tab is in the background
+    await waitBox((root) => root.querySelector(".panel .name").textContent === "Renamed in the popup");
+    check(await inBox((root) => root.querySelector(".name-in").value === "Renamed in the popup"), "a rename in the popup updates the open page's box");
+    // Unsaved typing survives an update from elsewhere, and Revert brings back the stored value.
+    await inBox((root) => { const i = root.querySelector(".name-in"); i.value = "half typed"; i.dispatchEvent(new Event("input", { bubbles: true })); });
+    await popup.$$eval(".build", (els, l) => els.find((e) => e.dataset.link === l).querySelector("button.star").click(), boxLink);
+    await popup.waitForFunction((l) => document.querySelector('.build[data-link="' + l + '"] button.star:not(.on)'), { timeout: 10000, polling: 200 }, boxLink);
+    await new Promise((r) => setTimeout(r, 500));
+    check(await inBox((root) => root.querySelector(".name-in").value === "half typed"), "an update from the popup doesn't wipe what is being typed in the box");
+    await inBox((root) => Array.from(root.querySelectorAll(".editor button")).find((b) => b.textContent === "Revert").click());
+    await waitBox((root) => root.querySelector(".name-in").value === "Renamed in the popup" && root.querySelector(".head button.icon").textContent === "☆");
+    check(true, "Revert restores the stored name, and the box then shows the popup's unstar");
+    const shot3 = shot.replace(/\.png$/, "-pagebox.png");
+    await page.screenshot({ path: shot3 });
+    console.log("screenshot: " + path.relative(root, shot3));
+    // The open/closed state is remembered across pages.
+    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
+    await waitBox((root) => root.querySelector(".panel .editor"));
+    check(true, "the box reopens on the next share page once opened");
+    // Pages that aren't stored builds get no box.
+    for (const u of notBuilds) {
+      await page.goto(u, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
+      check(await page.evaluate(() => !document.getElementById("pob-manager-box")), "no box on " + u);
+    }
+    // Delete from the box takes two clicks; the box and the popup row go.
+    await page.goto(boxLink, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+    await waitBox((root) => root.querySelector(".panel .foot button.danger"));
+    await inBox((root) => root.querySelector(".foot button.danger").click());
+    check(await inBox((root) => root.querySelector(".foot button.danger").textContent === "Click again to delete"), "the first Delete click asks again");
+    await inBox((root) => root.querySelector(".foot button.danger").click());
+    await page.waitForFunction(() => !document.getElementById("pob-manager-box"), { timeout: 10000, polling: 200 });
+    await popup.waitForFunction((l) => !document.querySelector('.build[data-link="' + l + '"]'), { timeout: 10000, polling: 200 }, boxLink);
+    check(true, "the second click deletes: the box and the popup row are gone");
     console.log("PASS");
   } finally {
     await browser.close();

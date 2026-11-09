@@ -11,6 +11,8 @@ developer: no analytics, no tracking, no accounts.
 - **When an address is a build share link**, it downloads that build's code once from the same site (the same
   download Path of Building makes when you import the link), reads it, and keeps what it read: the link, when you
   visited it, and the build's class, level, skills, keystones, items and saved stats. The code itself is not kept.
+- **On those sites' pages it adds a small PoB Manager button** that shows and edits the stored build for the page. It
+  reads only the page's address, never the page's content, and sends nothing to the site.
 - **Everything is stored in your browser** (the extension's IndexedDB). It is never sent anywhere. Removing the
   extension deletes it.
 - Nothing else is sent anywhere.

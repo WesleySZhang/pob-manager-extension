@@ -92,3 +92,28 @@ test("npm run build makes a Chrome .zip and a Firefox .xpi holding exactly the b
     assert.ok(entries.includes("manifest.json") && entries.includes("popup/popup.html"), browser);
   }
 });
+
+test("the page box runs on every site's share pages, within the host permissions, with its files loaded first", () => {
+  // src/page.js needs PobFilter and PobBuildView, which need PobBuildInfo and PobXml: a content script's files run in
+  // order, so each must come after what it reads. Chrome and Firefox get the same content script.
+  assert.deepEqual(targets.firefox.content_scripts, targets.chrome.content_scripts);
+  const [cs] = targets.chrome.content_scripts;
+  assert.equal(targets.chrome.content_scripts.length, 1);
+  for (const s of SITES) {
+    const host = new URL(describe(s.key, "abc").link).host;
+    assert.ok(cs.matches.includes("https://" + host + "/*"), "page box on " + host);
+  }
+  for (const m of cs.matches) assert.ok(targets.chrome.host_permissions.includes(m), m + " is a host permission");
+  assert.deepEqual(cs.js, ["src/xml.js", "src/buildinfo.js", "src/filter.js", "src/buildview.js", "src/page.js"]);
+  for (const f of cs.js) assert.ok(files.includes(f), f + " is packaged");
+  const globalOf = { "src/xml.js": "PobXml", "src/buildinfo.js": "PobBuildInfo", "src/filter.js": "PobFilter", "src/buildview.js": "PobBuildView" };
+  cs.js.forEach((f, i) => {
+    const src = fs.readFileSync(path.join(root, f), "utf8");
+    for (const [dep, name] of Object.entries(globalOf)) {
+      if (dep !== f && new RegExp("root\." + name + "\b(?! =)|globalThis\." + name + "\b").test(src)) {
+        assert.ok(cs.js.indexOf(dep) !== -1 && cs.js.indexOf(dep) < i, f + " reads " + name + " from " + dep + ", which must load first");
+      }
+    }
+  });
+  assert.ok(!cs.js.includes("data/pobdata.js"), "the PoB data (680 KB) stays out of every share page");
+});

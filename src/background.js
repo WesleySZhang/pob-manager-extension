@@ -48,9 +48,31 @@ function notifyPopup() {
     const p = ext.runtime.sendMessage({ type: "builds-changed" });
     if (p && p.catch) p.catch(function () {});
   } catch (e) { /* no listener */ }
+  // The page boxes (src/page.js) on open share pages: runtime.sendMessage doesn't reach content scripts. Querying by
+  // URL needs only the host permissions the extension already has.
+  try {
+    Promise.resolve(ext.tabs.query({ url: SHARE_PAGES })).then(function (tabs) {
+      for (const t of tabs || []) {
+        try {
+          const p = ext.tabs.sendMessage(t.id, { type: "builds-changed" });
+          if (p && p.catch) p.catch(function () {});
+        } catch (e) { /* no page box in this tab */ }
+      }
+    }, function () {});
+  } catch (e) { /* not fatal */ }
 }
+// The share pages the page box runs on: the content_scripts matches (tools/build.js).
+const SHARE_PAGES = (ext.runtime.getManifest().content_scripts || []).reduce((all, c) => all.concat(c.matches || []), []);
 
 ext.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (msg && msg.type === "get") {
+    // The page box asks for its page's build. Private windows are never recorded, so their box stays hidden.
+    if (sender && sender.tab && sender.tab.incognito) { sendResponse({ ok: true, found: null }); return false; }
+    recorder().then((r) => r.lookup(String(msg.url || "")))
+      .then(function (found) { sendResponse({ ok: true, found: found }); },
+        function (e) { sendResponse({ ok: false, error: (e && e.message) || String(e) }); });
+    return true;
+  }
   if (!msg || ["retry", "edit", "delete"].indexOf(msg.type) === -1) return false;
   recorder()
     .then((r) => (msg.type === "retry" ? r.refresh(msg.key) : msg.type === "delete" ? r.remove(msg.key) : r.edit(msg.key, msg.changes || {})))

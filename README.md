@@ -56,6 +56,18 @@ site it came from.
 - **Favorites.** Click ☆ on a build to star it; **★ Favorites** next to the search shows only starred builds.
 - Builds read by an older version of the extension are read again when the browser starts or the extension reloads.
 
+## On the share page
+
+On a share page whose build is stored, a **PoB Manager** button sits in the bottom-right corner (on all 8 sites; it
+floats over the page, so it doesn't depend on any site's layout). It opens a panel with the build's name, creator,
+summary (class, level, main skill, patch, saved DPS/Life/ES) and the same editor as ✎: name, creator, main skill and
+default loadout, plus ☆ favorite, **Open in PoB** and **Delete** (two clicks). Edits show in the popup at once, and edits
+made in the popup show in an open page's panel. Whether the panel is open is remembered from page to page. Pages that
+aren't a stored build (the ladder, a paste that holds no build) and private windows get no button.
+
+The panel is drawn in a shadow root (the site's styles don't reach it) by `src/page.js`, a content script that asks the
+background script for its build: a content script can't open the extension's database.
+
 ## Install
 
 From the [latest release](https://github.com/WesleySZhang/pob-manager-extension/releases/latest):

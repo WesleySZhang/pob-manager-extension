@@ -79,6 +79,27 @@ function check(cond, msg) {
     check(true, "rename saved through the background script");
     await popup.screenshot({ path: shot });
     console.log("screenshot: " + path.relative(root, shot));
+
+    // The page box (src/page.js) on the share page: shows the popup's rename, and a rename in the box reaches the popup.
+    // Waits poll on a timer: a tab behind another gets no animation frames.
+    await page.bringToFront();
+    await page.goto(link, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+    await page.waitForFunction(() => { const h = document.getElementById("pob-manager-box"); return !!(h && h.shadowRoot && h.shadowRoot.querySelector(".pill")); }, { timeout: 15000, polling: 200 });
+    await page.evaluate(() => document.getElementById("pob-manager-box").shadowRoot.querySelector(".pill").click());
+    await page.waitForFunction(() => { const r = document.getElementById("pob-manager-box").shadowRoot; return r.querySelector(".panel .name") && r.querySelector(".panel .name").textContent === "Firefox rename"; }, { timeout: 15000, polling: 200 });
+    check(true, "the share page's box shows the build with the popup's rename");
+    await page.evaluate(() => {
+      const r = document.getElementById("pob-manager-box").shadowRoot;
+      const i = r.querySelector(".name-in");
+      i.value = "Renamed in the Firefox box";
+      i.dispatchEvent(new Event("input", { bubbles: true }));
+      r.querySelector(".editor button.primary").click();
+    });
+    await popup.waitForFunction(() => Array.from(document.querySelectorAll(".build .name")).some((n) => n.textContent === "Renamed in the Firefox box"), { timeout: 15000, polling: 200 });
+    check(true, "a rename in the box is saved and shows in the popup");
+    const shot2 = shot.replace(/\.png$/, "-pagebox.png");
+    await page.screenshot({ path: shot2 });
+    console.log("screenshot: " + path.relative(root, shot2));
     console.log("PASS");
   } finally {
     await browser.close();
