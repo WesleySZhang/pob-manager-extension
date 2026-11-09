@@ -84,10 +84,8 @@ function check(cond, msg) {
     // Waits poll on a timer: a tab behind another gets no animation frames.
     await page.bringToFront();
     await page.goto(link, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
-    await page.waitForFunction(() => { const h = document.getElementById("pob-manager-box"); return !!(h && h.shadowRoot && h.shadowRoot.querySelector(".pill")); }, { timeout: 15000, polling: 200 });
-    await page.evaluate(() => document.getElementById("pob-manager-box").shadowRoot.querySelector(".pill").click());
-    await page.waitForFunction(() => { const r = document.getElementById("pob-manager-box").shadowRoot; return r.querySelector(".panel .name") && r.querySelector(".panel .name").textContent === "Firefox rename"; }, { timeout: 15000, polling: 200 });
-    check(true, "the share page's box shows the build with the popup's rename");
+    await page.waitForFunction(() => { const h = document.getElementById("pob-manager-box"); const r = h && h.shadowRoot; return !!(r && r.querySelector(".panel .name") && r.querySelector(".panel .name").textContent === "Firefox rename"); }, { timeout: 15000, polling: 200 });
+    check(true, "the share page's panel shows at once, with the popup's rename");
     await page.evaluate(() => {
       const r = document.getElementById("pob-manager-box").shadowRoot;
       const i = r.querySelector(".name-in");

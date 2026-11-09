@@ -1,6 +1,6 @@
 // The page box: a content script on the PoB share sites (tools/build.js content_scripts). On a share page whose build is
-// stored, a "PoB Manager" button sits in the bottom-right corner; it opens a panel that shows the build and edits it
-// like the popup's ✎ (name, creator, main skill, default loadout), plus favorite and delete. The panel lives in a shadow
+// stored, a panel always sits in the bottom-right corner (no button to open it: Wesley's choice): it shows the build
+// and edits it like the popup's ✎ (name, creator, main skill, default loadout), plus favorite and delete. It lives in a shadow
 // root so the site's styles don't reach it, and every read and write goes through the background script (a content
 // script can't open the extension's IndexedDB). Rules shared with the popup: src/buildview.js.
 "use strict";
@@ -12,7 +12,6 @@
 
   let url = location.href;
   let found = null; // { key, record } from the background, or null
-  let open = false;
   let dirty = false; // the editor holds unsaved input: background updates must not overwrite it
   let confirmDelete = false;
   let note = ""; // a short status line under the editor ("Saved", an error)
@@ -29,13 +28,8 @@
       --text: #e4e7ee; --muted: #8a93a8; --accent: #d9a84e; --accent-text: #15120a; --danger: #e06c6c; --tag: #2f3647;
       --focus: #5b8def; color-scheme: dark; }
     * { box-sizing: border-box; }
-    .wrap { font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text);
-      display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-    .pill { background: var(--panel); color: var(--text); border: 1px solid var(--line-strong); border-left: 3px solid var(--accent);
-      border-radius: 4px; padding: 5px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.5); cursor: pointer; font: inherit; }
-    .pill:hover { border-color: var(--muted); border-left-color: var(--accent); }
-    .pill .star { color: var(--accent); margin-left: 4px; }
-    .panel { width: 360px; max-height: calc(100vh - 80px); overflow: auto; background: var(--bg); border: 1px solid var(--line-strong);
+    .wrap { font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text); }
+    .panel { width: 360px; max-height: calc(100vh - 32px); overflow: auto; background: var(--bg); border: 1px solid var(--line-strong);
       border-left: 3px solid var(--accent); border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.6); padding: 10px 12px; }
     .head { display: flex; align-items: center; gap: 6px; }
     .head .name { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -98,28 +92,14 @@
     found = r.ok ? r.found : null;
     render();
   }
-  async function loadOpen() {
-    try { const r = await ext.storage.local.get("pageBoxOpen"); open = !!(r && r.pageBoxOpen); } catch (e) { /* a convenience */ }
-  }
-  function setOpen(v) {
-    open = v;
-    confirmDelete = false;
-    note = "";
-    try { Promise.resolve(ext.storage.local.set({ pageBoxOpen: v })).catch(function () {}); } catch (e) { /* not fatal */ }
-    dirty = false;
-    render();
-  }
 
   // ---------- drawing ----------
   function render() {
     const b = found && found.record;
     if (!b) { host.remove(); return; } // not a share page, not a build, or not stored yet
     if (!host.isConnected) document.documentElement.append(host);
-    if (dirty && open && wrap.querySelector(".editor")) return; // keep what is being typed
-    const fav = b.favorite === true;
-    const pill = el("button", { class: "pill", type: "button", title: open ? "Hide PoB Manager" : "Show this build in PoB Manager",
-      onclick: () => setOpen(!open) }, ["PoB Manager", fav ? el("span", { class: "star", text: "★" }) : null]);
-    wrap.replaceChildren(...(open ? [panel(b), pill] : [pill]));
+    if (dirty && wrap.querySelector(".editor")) return; // keep what is being typed
+    wrap.replaceChildren(panel(b));
   }
 
   function panel(b) {
@@ -132,7 +112,6 @@
         title: fav ? "Remove from favorites" : "Add to favorites",
         onclick: () => send({ type: "edit", key: b.key, changes: { favorite: !fav } }).then(refresh) }),
       el("span", { class: "name", text: F.displayName(b), title: F.displayName(b) }),
-      el("button", { class: "icon", type: "button", text: "×", title: "Hide", onclick: () => setOpen(false) }),
     ]);
     const sub = el("div", { class: "sub", text: [b.creator ? "by " + b.creator : null, b.label,
       b.visits + " visit" + (b.visits === 1 ? "" : "s"), views.length > 1 && view ? "loadout " + view.name + " (" + views.length + " loadouts)" : null]
@@ -221,5 +200,5 @@
   ext.runtime.onMessage.addListener(function (msg) {
     if (msg && msg.type === "builds-changed") refresh();
   });
-  loadOpen().then(refresh);
+  refresh();
 })();

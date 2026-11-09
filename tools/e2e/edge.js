@@ -264,12 +264,10 @@ function check(cond, msg) {
     // animation frames, which waitForFunction polls on by default).
     await page.bringToFront();
     await page.goto(boxLink, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
-    await waitBox((root) => root.querySelector(".pill"));
-    check(await inBox((root) => !root.querySelector(".panel") && root.querySelector(".pill").textContent.startsWith("PoB Manager")),
-      "a stored build's share page shows the PoB Manager button, closed");
-    check(await page.evaluate(() => getComputedStyle(document.getElementById("pob-manager-box")).position === "fixed"), "the box is fixed to the corner, outside the site's layout");
-    await inBox((root) => root.querySelector(".pill").click());
     await waitBox((root) => root.querySelector(".panel .editor"));
+    check(await inBox((root) => !root.querySelector(".pill") && !Array.from(root.querySelectorAll("button")).some((b) => b.textContent === "×")),
+      "a stored build's share page shows the panel at once: no button to open it, none to hide it");
+    check(await page.evaluate(() => getComputedStyle(document.getElementById("pob-manager-box")).position === "fixed"), "the box is fixed to the corner, outside the site's layout");
     const boxName = await inBox((root) => root.querySelector(".panel .name").textContent);
     check(boxName === await popupName(), "the box names the build as the popup does (" + boxName + ")");
     const boxMeta = await inBox((root) => root.querySelector(".panel .meta").innerText.replace(/\s+/g, " "));
@@ -290,9 +288,9 @@ function check(cond, msg) {
     check(await popup.$eval('.build[data-link="' + boxLink + '"] .by', (e) => e.textContent) === "by Page Creator", "a rename and creator saved in the box show in the popup");
     // Star it in the box; the popup follows.
     await inBox((root) => root.querySelector(".head button.icon").click());
-    await waitBox((root) => root.querySelector(".head button.icon").textContent === "★" && root.querySelector(".pill .star"));
+    await waitBox((root) => root.querySelector(".head button.icon").textContent === "★");
     await popup.waitForFunction((l) => document.querySelector('.build[data-link="' + l + '"] button.star.on'), { timeout: 10000, polling: 200 }, boxLink);
-    check(true, "a favorite set in the box shows in the popup, and on the box's button");
+    check(true, "a favorite set in the box shows in the popup");
     // An edit in the popup reaches the open page.
     await popup.$$eval(".build", (els, l) => els.find((e) => e.dataset.link === l).querySelector("button.icon").click(), boxLink);
     await popup.waitForFunction(() => document.querySelector(".editor input"), { timeout: 10000, polling: 200 });
@@ -312,10 +310,10 @@ function check(cond, msg) {
     const shot3 = shot.replace(/\.png$/, "-pagebox.png");
     await page.screenshot({ path: shot3 });
     console.log("screenshot: " + path.relative(root, shot3));
-    // The open/closed state is remembered across pages.
+    // A new visit shows the panel again, with no click.
     await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
     await waitBox((root) => root.querySelector(".panel .editor"));
-    check(true, "the box reopens on the next share page once opened");
+    check(true, "the panel shows again after a reload");
     // Pages that aren't stored builds get no box.
     for (const u of notBuilds) {
       await page.goto(u, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
