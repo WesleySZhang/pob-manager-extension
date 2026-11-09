@@ -225,3 +225,43 @@ test("favorite: starred, unstarred, kept through a re-read and an upgrade", asyn
   r = await rec.edit("pobbin:abc123", { creator: "x" });
   assert.equal("favorite" in r, false, "other edits leave it alone");
 });
+
+test("each read records how long its steps took", async () => {
+  // A stand-in clock that moves 5 ms per reading, so every step takes a known time.
+  const store = await Store.open(new IDBFactory(), "timing");
+  let t = 0;
+  const rec = createRecorder({ store, fetch: fakeFetch({ [RAW]: CODE }), decode: PobCode.decode, data, now: () => 1, clock: () => (t += 5) });
+  const r = await rec.visit(LINK);
+  assert.deepEqual(Object.keys(r.timing).sort(), ["codeBytes", "decodeMs", "downloadMs", "downloads", "readMs", "saveMs", "totalMs", "xmlBytes"]);
+  assert.equal(r.timing.downloads, 1);
+  assert.equal(r.timing.downloadMs, 5);
+  assert.equal(r.timing.decodeMs, 5);
+  assert.equal(r.timing.readMs, 5);
+  assert.equal(r.timing.codeBytes, CODE.length);
+  assert.ok(r.timing.xmlBytes > r.timing.codeBytes, "the XML is bigger than the compressed code");
+  assert.ok(r.timing.totalMs >= r.timing.downloadMs + r.timing.decodeMs + r.timing.readMs + r.timing.saveMs);
+  assert.equal((await store.getBuild("pobbin:abc123")).timing.totalMs, r.timing.totalMs, "stored with the build");
+});
+
+test("429 Too Many Requests: one retry after Retry-After (2 s without it, at most 10 s), then an error to retry later", async () => {
+  // Regression: pobb.in answered 429 when builds were opened quickly, leaving them as errors (tools/e2e/measure.js).
+  async function attempt(replies) {
+    const store = await Store.open(new IDBFactory(), "r429-" + Math.random());
+    const waits = [];
+    let n = 0;
+    const fetch = async () => {
+      const [status, retryAfter] = replies[Math.min(n++, replies.length - 1)];
+      return { ok: status === 200, status: status, headers: { get: (h) => (h === "Retry-After" ? retryAfter : null) }, text: async () => (status === 200 ? CODE : "") };
+    };
+    const rec = createRecorder({ store, fetch, decode: PobCode.decode, data, now: () => 1, sleep: async (ms) => { waits.push(ms); } });
+    return { r: await rec.visit(LINK), waits, calls: n };
+  }
+  let a = await attempt([[429, "3"], [200, null]]);
+  assert.deepEqual([a.r.status, a.waits, a.calls, a.r.timing.downloads], ["ok", [3000], 2, 2]);
+  a = await attempt([[429, null], [200, null]]);
+  assert.deepEqual(a.waits, [2000], "no Retry-After: 2 s");
+  a = await attempt([[429, "60"], [200, null]]);
+  assert.deepEqual(a.waits, [10000], "capped at 10 s");
+  a = await attempt([[429, "1"], [429, "1"], [200, null]]);
+  assert.deepEqual([a.r.status, a.r.error, a.calls], ["error", "pobb.in returned HTTP 429", 2]);
+});

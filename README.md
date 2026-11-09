@@ -70,6 +70,26 @@ npm run lint:firefox   # Mozilla's add-on linter on dist/firefox
   Nightly or ESR install it from `about:addons` → ⚙ → Install Add-on From File once `xpinstall.signatures.required` is set
   to `false` in `about:config`. Needs Firefox 140 or later.
 
+## How fast
+
+`npm run measure` (`tools/e2e/measure.js`) opens share links in Edge with and without the extension, a fresh profile
+each run, and reads the timing the extension stores with every build (`timing`: download, decode, read, save).
+Nov 8, 2026, 7 runs, median (min–max) in milliseconds:
+
+| Link | Page load without | Page load with | Build in list after | Download | Decode | Read | Save | Code / XML |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| pobb.in/2FlZU8rRPp3F | 412 (373–463) | 361 (319–519) | 312 (265–408) | 144 (122–255) | 2.3 | 5.1 | 0.5 | 27 / 177 KB |
+| pobb.in/agb0V8xT8c-j | 169 (126–198) | 150 (131–178) | 147 (117–181) | 73 (60–123) | 0.8 | 1.3 | 0.6 | 14 / 55 KB |
+| poe.ninja/poe1/pob/934b3 | 528 (455–900) | 498 (463–620) | 248 (237–365) | 126 (113–204) | 1.3 | 2.4 | 0.4 | 37 / 302 KB |
+| poe.ninja/pob/igw | 200 (177–235) | 193 (168–252) | 162 (149–218) | 52 (47–75) | 0.9 | 1.6 | 0.4 | 31 / 166 KB |
+
+- **No measurable effect on the page:** load times with and without the extension overlap; the work runs in the
+  background after the page starts loading.
+- **A build is in the list 0.15–0.3 s after you open its link**, usually before the page itself has finished loading.
+- **The download is nearly all of it.** Decoding, reading and saving take 2–8 ms together.
+- pobb.in rate-limits quick repeats (HTTP 429). The extension then waits as asked (`Retry-After`, 2 s by default, at
+  most 10 s) and tries once more; `timing.downloads` counts the attempts.
+
 ## How the reading is checked
 
 The build reader (`src/buildinfo.js`) follows Path of Building v2.67.2 rule by rule, and is checked against PoB itself

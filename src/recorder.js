@@ -24,20 +24,42 @@
   function createRecorder(deps) {
     const inFlight = new Map();
 
+    // A millisecond clock for timing the steps of a read (performance.now in the browser).
+    const clock = deps.clock || (typeof performance !== "undefined" ? () => performance.now() : Date.now);
+    const ms = (a, b) => Math.round((b - a) * 10) / 10;
+    const sleep = deps.sleep || ((n) => new Promise((resolve) => setTimeout(resolve, n)));
+
+    /** @returns {{info, timing: {downloadMs, decodeMs, readMs, codeBytes, xmlBytes}}} */
     async function readLink(site) {
-      let res;
-      try {
-        res = await deps.fetch(site.raw, { credentials: "omit", headers: { Accept: "text/plain" } });
-      } catch (e) {
-        throw new Error("Could not reach " + site.label);
+      const t0 = clock();
+      let res, attempts = 0;
+      for (let attempt = 0; ; attempt++) {
+        attempts = attempt + 1;
+        try {
+          res = await deps.fetch(site.raw, { credentials: "omit", headers: { Accept: "text/plain" } });
+        } catch (e) {
+          throw new Error("Could not reach " + site.label);
+        }
+        // 429 Too Many Requests: wait as the site asks (Retry-After seconds; 2 s if it doesn't say, at most 10 s) and
+        // try once more, as PoE-Ninja-Extension's client does. pobb.in answered 429 when builds were opened quickly.
+        if (res.status !== 429 || attempt >= 1) break;
+        // A missing header must not read as 0 (Number(null) === 0); an HTTP-date value reads as NaN and gets 2 s.
+        const raw = res.headers && res.headers.get ? res.headers.get("Retry-After") : null;
+        const after = raw === null || raw === undefined || String(raw).trim() === "" ? NaN : Number(raw);
+        await sleep(Number.isFinite(after) && after >= 0 ? Math.min(after, 10) * 1000 : 2000);
       }
       if (res.status === 404 || res.status === 400 || res.status === 410) throw new NotABuild(site.label + " has no build at this link (HTTP " + res.status + ")");
       if (!res.ok) throw new Error(site.label + " returned HTTP " + res.status);
       const text = (await res.text()).trim();
+      const t1 = clock();
       const Fail = site.paste ? NotABuild : Error;
       let xml;
       try { xml = await deps.decode(text); } catch (e) { throw new Fail(site.paste ? "The page is not a PoB build code" : site.label + " sent something that isn't a PoB build code"); }
-      try { return BuildInfo.readBuild(xml, deps.data); } catch (e) { throw new Fail("The code is not a PoB build: " + e.message); }
+      const t2 = clock();
+      let info;
+      try { info = BuildInfo.readBuild(xml, deps.data); } catch (e) { throw new Fail("The code is not a PoB build: " + e.message); }
+      const t3 = clock();
+      return { info: info, timing: { downloadMs: ms(t0, t1), downloads: attempts, decodeMs: ms(t1, t2), readMs: ms(t2, t3), codeBytes: text.length, xmlBytes: xml.length } };
     }
 
     /** Fetches and reads a stored link's build, updating its record. Concurrent calls for one key share one read. */
@@ -48,8 +70,14 @@
         if (!rec) return undefined;
         const site = Sites.describe(rec.site, rec.id);
         try {
-          const info = await readLink(site);
-          return await deps.store.updateBuild(key, (r) => Object.assign(r, { status: "ok", info: info, error: undefined, readAt: deps.now() }));
+          const t0 = clock();
+          const got = await readLink(site);
+          const t1 = clock();
+          const saved = await deps.store.updateBuild(key, (r) => Object.assign(r, { status: "ok", info: got.info, error: undefined, readAt: deps.now() }));
+          // How long this read took, step by step. Saving is timed too, so the timing goes in a second, tiny update.
+          const t2 = clock();
+          const timing = Object.assign(got.timing, { saveMs: ms(t1, t2), totalMs: ms(t0, t2) });
+          return (await deps.store.updateBuild(key, (r) => Object.assign(r, { timing: timing }))) || saved;
         } catch (e) {
           if (e instanceof NotABuild) {
             await deps.store.deleteBuild(key);
