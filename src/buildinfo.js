@@ -68,6 +68,11 @@
    * enableGlobal<index> toggle on. enableGlobal1 defaults to on, enableGlobal2 to off (SkillsTab.lua LoadSkill).
    */
   function groupSkills(group, data, ix) {
+    return groupSkillIds(group, data, ix).map((id) => data.skills[id].n);
+  }
+
+  /** groupSkills as skill ids. */
+  function groupSkillIds(group, data, ix) {
     const out = [];
     for (const gemEl of X.children(group, "Gem")) {
       const a = gemEl.attrs;
@@ -80,10 +85,65 @@
         const toggle = a["enableGlobal" + (i + 1)];
         const on = i === 0 ? toggle === undefined || toggle === "true" : toggle === "true";
         if (s.glob && !on) return;
-        out.push(s.n);
+        out.push(skillId);
       });
     }
     return out;
+  }
+
+  /** Enabled support gems in a group (resolved gems whose main effect is a support). */
+  function supportCount(group, data, ix) {
+    let n = 0;
+    for (const gemEl of X.children(group, "Gem")) {
+      const a = gemEl.attrs;
+      if (a.enabled !== undefined && a.enabled !== "true") continue;
+      const gem = resolveGem(a, data, ix);
+      const main = gem && data.skills[gem.effects[0]];
+      if (main && main.sup) n++;
+    }
+    return n;
+  }
+
+  /**
+   * Whether a skill is one a build is "about": it deals damage (Attack, Damage, DamageOverTime) or makes minions, and
+   * is not a movement, herald, guard or banner skill. Auras, buffs, curses and marks count when they deal damage
+   * themselves (Smite, Righteous Fire, Bane), so only their damage types matter. Types are PoB's (Data/Global.lua
+   * SkillType, per skill in Data/Skills).
+   * Our own rule, not PoB's: PoB's main skill is whichever group the author left selected.
+   */
+  function isDamageSkill(skillId, data) {
+    const s = data.skills[skillId];
+    if (!s || s.sup) return false;
+    const t = new Set(s.t || []);
+    const deals = t.has("Attack") || t.has("Damage") || t.has("DamageOverTime") || t.has("Minion") || t.has("CreatesMinion");
+    const utility = t.has("Travel") || t.has("Blink") || t.has("Herald") || t.has("Guard") || t.has("Banner");
+    return deals && !utility;
+  }
+
+  /**
+   * Our pick of the main skill: PoB's main skill when it is a damage skill, or when the gem granting it also grants a
+   * damage skill (Frozen Legion's statues attack with Frozen Sweep: the build is still "Frozen Legion"); otherwise the
+   * damage skill whose group has the most enabled support gems (the earlier group on a tie, the first such skill in the
+   * group); otherwise PoB's.
+   */
+  function autoMainSkill(groups, pobMainId, mainGroup, data, ix) {
+    if (pobMainId && isDamageSkill(pobMainId, data)) return data.skills[pobMainId].n;
+    if (pobMainId && mainGroup) {
+      for (const gemEl of X.children(mainGroup, "Gem")) {
+        const gem = resolveGem(gemEl.attrs, data, ix);
+        if (gem && gem.effects.indexOf(pobMainId) !== -1 && gem.effects.some((id) => isDamageSkill(id, data))) return data.skills[pobMainId].n;
+      }
+    }
+    let best = null, bestScore = -1;
+    for (const g of groups) {
+      if (g.attrs.enabled !== undefined && g.attrs.enabled !== "true") continue;
+      const id = groupSkillIds(g, data, ix).find((x) => isDamageSkill(x, data));
+      if (!id) continue;
+      const score = supportCount(g, data, ix);
+      if (score > bestScore) { best = id; bestScore = score; }
+    }
+    if (best) return data.skills[best].n;
+    return pobMainId ? data.skills[pobMainId].n : null;
   }
 
   /** Every gem and skill name in a set of socket groups, for search. */
@@ -390,6 +450,7 @@
       es: stats.EnergyShield !== undefined ? stats.EnergyShield : null,
       stats: stats,
       loadouts: loadouts,
+      readerVersion: READER_VERSION,
     });
   }
 
@@ -453,19 +514,21 @@
     // Skills: the main socket group is one index for the whole build, clamped to the skill set's groups
     // (CalcSetup.lua: mainSocketGroup = min(max(#socketGroupList, 1), mainSocketGroup)).
     const groups = skillSet && skillSet.el ? X.children(skillSet.el, "Skill") : [];
-    let mainSkill = null;
+    let mainId = null;
     const mainGroup = groups[Math.min(Math.max(groups.length, 1), mainIndex) - 1];
     if (mainGroup) {
-      const list = groupSkills(mainGroup, data, ix);
-      if (list.length) {
-        const pick = Math.min(list.length, parseInt(mainGroup.attrs.mainActiveSkill, 10) || 1);
-        mainSkill = list[pick - 1];
-      }
+      const list = groupSkillIds(mainGroup, data, ix);
+      if (list.length) mainId = list[Math.min(list.length, parseInt(mainGroup.attrs.mainActiveSkill, 10) || 1) - 1];
     }
+    // Every active skill in the set, in group order: the choices for setting the main skill by hand.
+    const active = [];
+    for (const g of groups) for (const id of groupSkillIds(g, data, ix)) if (active.indexOf(data.skills[id].n) === -1) active.push(data.skills[id].n);
 
     return {
       bloodline: bloodline,
-      mainSkill: mainSkill,
+      mainSkill: mainId ? data.skills[mainId].n : null, // PoB's main skill, exactly as PoB shows it
+      autoMainSkill: autoMainSkill(groups, mainId, mainGroup, data, ix), // our pick (see autoMainSkill)
+      activeSkills: active,
       skills: allGemNames(groups, data, ix),
       treeVersion: treeVersion,
       patch: patchOf(treeVersion),
@@ -477,10 +540,10 @@
     };
   }
 
-  /** "Cyclone Slayer": the main skill and the ascendancy (or class). */
-  function defaultName(info) {
+  /** "Cyclone Slayer": the main skill (`skill`, else our pick, else PoB's) and the ascendancy (or class). */
+  function defaultName(info, skill) {
     const who = info.ascendancy || info.className || "";
-    return [info.mainSkill, who].filter(Boolean).join(" ") || "Unnamed build";
+    return [skill || info.autoMainSkill || info.mainSkill, who].filter(Boolean).join(" ") || "Unnamed build";
   }
 
   /** The challenge league released in a patch ("3.29" -> Allflame), from data/leagues.js. */
@@ -500,7 +563,10 @@
     return null;
   }
 
-  const api = { readBuild, resolveGem, groupSkills, defaultName, leagueForPatch, leagueAt, patchOf, comparePatchDesc, activeItemLines, equippedItemIds };
+  // Bumped whenever readBuild gains or changes a field; stored builds read by an older version are read again.
+  const READER_VERSION = 2;
+
+  const api = { READER_VERSION, isDamageSkill, readBuild, resolveGem, groupSkills, defaultName, leagueForPatch, leagueAt, patchOf, comparePatchDesc, activeItemLines, equippedItemIds };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.PobBuildInfo = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

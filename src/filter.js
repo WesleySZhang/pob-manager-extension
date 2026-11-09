@@ -43,9 +43,32 @@
     return views;
   }
 
+  /** The view shown first: the default loadout set by hand when it still exists, else the saved state. */
+  function defaultViewIndex(build) {
+    const views = viewsOf(build);
+    const set = build.defaultView ? views.findIndex((v) => v.name === build.defaultView) : -1;
+    if (set !== -1) return set;
+    const saved = views.findIndex((v) => v.saved);
+    return saved === -1 ? 0 : saved;
+  }
+
+  /**
+   * The main skill shown for a view: the one set by hand for it, else our pick (buildinfo autoMainSkill), else PoB's.
+   * @returns {{skill, source: "manual"|"auto"|"pob", pob}} pob = PoB's own main skill.
+   */
+  function mainSkillOf(build, view) {
+    const i = view.info;
+    const manual = build.mainSkills && build.mainSkills[view.name];
+    if (manual) return { skill: manual, source: "manual", pob: i.mainSkill };
+    if (i.autoMainSkill && i.autoMainSkill !== i.mainSkill) return { skill: i.autoMainSkill, source: "auto", pob: i.mainSkill };
+    return { skill: i.mainSkill || i.autoMainSkill || null, source: "pob", pob: i.mainSkill };
+  }
+
   function displayName(build) {
     if (build.customName && build.customName.trim()) return build.customName.trim();
-    return build.info ? B.defaultName(build.info) : build.link;
+    if (!build.info) return build.link;
+    const view = viewsOf(build)[defaultViewIndex(build)];
+    return B.defaultName(view.info, mainSkillOf(build, view).skill);
   }
 
   /** Values for the drop-downs and type-aheads, from every view of every build. */
@@ -81,7 +104,7 @@
   }
 
   const EMPTY = { patch: "", className: "", ascendancy: "", search: "", creator: "", keystones: [], uniques: [],
-    dpsMin: "", dpsMax: "", lifeMin: "", lifeMax: "", sort: "newest" };
+    dpsMin: "", dpsMax: "", lifeMin: "", lifeMax: "", favorites: false, sort: "newest" };
 
   function inRange(value, minText, maxText) {
     const min = parseAmount(minText), max = parseAmount(maxText);
@@ -107,7 +130,7 @@
     }
     const q = (f.search || "").trim().toLowerCase();
     if (q) {
-      const hay = [displayName(build), build.creator || "", view.name].concat(i.skills || []).join("\n").toLowerCase();
+      const hay = [displayName(build), build.creator || "", view.name, mainSkillOf(build, view).skill || ""].concat(i.skills || []).join("\n").toLowerCase();
       if (hay.indexOf(q) === -1) return false;
     }
     return true;
@@ -125,7 +148,8 @@
 
   /**
    * @returns {{build, view: number}[]} the builds that match, sorted, each with the view to show: the first matching
-   * one, the saved state first. Builds that are still being read or failed are kept when no filter is set.
+   * one, trying the default loadout first, then the saved state, then the rest in order. Builds still being read or
+   * failed are kept when no filter is set.
    */
   function apply(builds, filters) {
     const f = Object.assign({}, EMPTY, filters || {});
@@ -133,10 +157,14 @@
       f.uniques.length || f.dpsMin || f.dpsMax || f.lifeMin || f.lifeMax;
     const out = [];
     for (const b of builds) {
+      // Favorites only: a starred build still being read or failed stays, like any build when no other filter is set.
+      if (f.favorites && b.favorite !== true) continue;
       if (f.creator === "\u0000none" ? (b.creator && b.creator.trim()) : (f.creator && (b.creator || "").trim() !== f.creator)) continue;
       const views = viewsOf(b);
       if (views.length === 0) { if (!anyFilter) out.push({ build: b, view: -1 }); continue; }
-      const order = views.map((v, i) => i).sort((x, y) => (views[y].saved ? 1 : 0) - (views[x].saved ? 1 : 0));
+      const first = defaultViewIndex(b);
+      const rank = (i) => (i === first ? 0 : views[i].saved ? 1 : 2);
+      const order = views.map((v, i) => i).sort((x, y) => rank(x) - rank(y) || x - y);
       const hit = order.find((i) => viewMatches(b, views[i], f));
       if (hit !== undefined) out.push({ build: b, view: hit });
     }
@@ -151,7 +179,7 @@
     return out;
   }
 
-  const api = { parseAmount, formatAmount, viewsOf, displayName, filterOptions, apply, EMPTY, NO_CREATOR: "\u0000none" };
+  const api = { parseAmount, formatAmount, viewsOf, defaultViewIndex, mainSkillOf, displayName, filterOptions, apply, EMPTY, NO_CREATOR: "\u0000none" };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.PobFilter = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

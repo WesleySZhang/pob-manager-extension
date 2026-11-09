@@ -97,16 +97,43 @@
       return counted;
     }
 
-    /** User edits from the popup. An empty value clears the field (the name falls back to the generated one). */
+    /**
+     * User edits from the popup. An empty value clears the field (the name falls back to the generated one).
+     *   customName, creator: text
+     *   mainSkill: { view, skill }  the main skill set by hand for one view (a loadout name, or "As saved")
+     *   defaultView: the view the popup shows first
+     *   favorite: true to star the build, false to unstar it
+     */
     function edit(key, changes) {
+      const text = (v) => (typeof v === "string" ? v.trim() : "");
       return deps.store.updateBuild(key, function (r) {
-        for (const field of ["customName", "creator"]) {
+        if ("favorite" in changes) {
+          if (changes.favorite === true) r.favorite = true; else delete r.favorite;
+        }
+        for (const field of ["customName", "creator", "defaultView"]) {
           if (!(field in changes)) continue;
-          const v = typeof changes[field] === "string" ? changes[field].trim() : "";
+          const v = text(changes[field]);
           if (v) r[field] = v; else delete r[field];
+        }
+        if (changes.mainSkill && text(changes.mainSkill.view)) {
+          const view = text(changes.mainSkill.view), skill = text(changes.mainSkill.skill);
+          const map = Object.assign({}, r.mainSkills);
+          if (skill) map[view] = skill; else delete map[view];
+          if (Object.keys(map).length) r.mainSkills = map; else delete r.mainSkills;
         }
         return r;
       });
+    }
+
+    /**
+     * Reads again, one after another, the stored builds that an older reader version read (BuildInfo.READER_VERSION),
+     * so they get new fields without a visit. Edits (name, creator, main skills, default loadout) are kept.
+     * @returns the number of builds read again.
+     */
+    async function upgrade() {
+      const stale = (await deps.store.allBuilds()).filter((b) => b.status === "ok" && (!b.info || b.info.readerVersion !== BuildInfo.READER_VERSION));
+      for (const b of stale) await refresh(b.key);
+      return stale.length;
     }
 
     /** Deletes a stored build. A later visit records it again as new. */
@@ -114,7 +141,7 @@
       return deps.store.deleteBuild(key);
     }
 
-    return { visit, refresh, edit, remove };
+    return { visit, refresh, edit, remove, upgrade };
   }
 
   const api = { createRecorder, NotABuild };

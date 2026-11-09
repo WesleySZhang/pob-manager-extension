@@ -84,6 +84,67 @@ test("the active skill set, and old builds with bare <Skill> groups", () => {
   assert.equal(read({ legacySkills: [[G.cyclone]] }).mainSkill, "Cyclone");
 });
 
+// ---------- our main skill pick (autoMainSkill; skill types from PoB Data/Skills via data/pobdata.js) ----------
+
+test("damage skills vs utility skills, by PoB's skill types", () => {
+  // Movement alone (Cyclone), Buff with damage over time (Righteous Fire), Aura on an attack (Smite) and a curse that
+  // deals damage (Bane) are damage skills; minion makers count too.
+  for (const id of ["StaticStrike", "Cyclone", "RighteousFire", "Smite", "Bane", "RaiseSpectre", "Fireball", "DualStrikeAltX"]) {
+    assert.equal(B.isDamageSkill(id, data), true, id);
+  }
+  // Travel/Blink (Ambush, Shield Charge, Whirling Blades, Frostblink), Herald, Guard, Banner, auras, buffs and curses
+  // that deal no damage, and supports.
+  for (const id of ["Ambush", "ShieldCharge", "WhirlingBlades", "Frostblink", "HeraldOfAsh", "MoltenShell", "WarBanner", "Hatred",
+    "BloodRage", "ElementalWeakness", "SupportMeleePhysicalDamage", "NoSuchSkill"]) {
+    assert.equal(B.isDamageSkill(id, data), false, id);
+  }
+});
+
+const AMBUSH = { nameSpec: "Ambush", skillId: "Ambush" };
+const STATIC = { nameSpec: "Static Strike", skillId: "StaticStrike" };
+const sup = (n) => ({ nameSpec: n });
+test("PoB's main skill is kept when it deals damage", () => {
+  const r = read(skills([[G.arc], [G.cyclone, G.meleePhys, sup("Brutality"), sup("Ruthless")]], { build: { mainSocketGroup: 1 } }));
+  assert.equal(r.mainSkill, "Arc");
+  assert.equal(r.autoMainSkill, "Arc");
+});
+
+test("a utility main skill gives way to the damage skill with the most supports (pobb.in/2FlZU8rRPp3F's shape)", () => {
+  // Regression: the build's saved main group was Ambush (Helmet) while Static Strike sat in a 6-link.
+  const r = read(skills([[STATIC, G.meleePhys, sup("Ruthless"), sup("Trinity"), sup("Close Combat")], [AMBUSH, sup("Second Wind"), sup("Lifetap")], [{ nameSpec: "Hatred" }]],
+    { build: { mainSocketGroup: 2, ascendClassName: "Slayer" }, specs: [{ classId: 4, ascendClassId: 1 }] }));
+  assert.equal(r.mainSkill, "Ambush", "PoB's own main skill is unchanged");
+  assert.equal(r.autoMainSkill, "Static Strike");
+  assert.equal(B.defaultName(r), "Static Strike Slayer");
+  assert.equal(B.defaultName(r, "Ambush"), "Ambush Slayer", "a skill passed in wins");
+  assert.deepEqual(r.activeSkills, ["Static Strike", "Ambush", "Hatred"]);
+});
+
+test("ties go to the earlier group; disabled groups and disabled supports don't count", () => {
+  const twoEqual = read(skills([[AMBUSH], [G.cyclone, G.meleePhys], [G.arc, sup("Spell Echo")]]));
+  assert.equal(twoEqual.autoMainSkill, "Cyclone");
+  const disabled = read(skills([[AMBUSH], { gems: [G.cyclone, G.meleePhys, sup("Brutality")], enabled: "false" }, [G.arc, Object.assign(sup("Spell Echo"), { enabled: "false" })]]));
+  assert.equal(disabled.autoMainSkill, "Arc");
+});
+
+test("no damage skill at all: PoB's choice stays", () => {
+  assert.equal(read(skills([[AMBUSH], [{ nameSpec: "Hatred" }]])).autoMainSkill, "Ambush");
+  assert.equal(read(skills([])).autoMainSkill, null);
+});
+
+test("a main skill whose gem also grants a damage skill stays (Frozen Legion's statues attack with Frozen Sweep)", () => {
+  const r = read(skills([[{ nameSpec: "Frozen Legion" }, sup("Melee Physical Damage")], [G.arc, sup("Spell Echo"), sup("Controlled Destruction")]]));
+  assert.equal(r.mainSkill, "Frozen Legion");
+  assert.equal(r.autoMainSkill, "Frozen Legion");
+});
+
+test("each loadout gets its own pick, and the record says which reader read it", () => {
+  const r = read({ specs: [{ title: "A" }, { title: "B" }],
+    skillSets: [{ id: 1, title: "A", groups: [[AMBUSH], [STATIC, G.meleePhys]] }, { id: 2, title: "B", groups: [[G.arc]] }] });
+  assert.deepEqual(r.loadouts.map((l) => [l.name, l.mainSkill, l.autoMainSkill]), [["A", "Ambush", "Static Strike"], ["B", "Arc", "Arc"]]);
+  assert.equal(r.readerVersion, B.READER_VERSION);
+});
+
 // ---------- class, tree, patch ----------
 
 test("class and ascendancy come from the tree spec's ids, not the <Build> attributes", () => {

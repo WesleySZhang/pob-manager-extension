@@ -13,6 +13,7 @@ const shot = path.join(root, ".local", "e2e-edge.png");
 const builds = process.argv.slice(2).length ? process.argv.slice(2) : [
   "https://poe.ninja/poe1/pob/934b3", // given by Wesley, Nov 8, 2026
   "https://pobb.in/agb0V8xT8c-j", // shared by Wesley (PoE-Sim tests/golden/README.md)
+  "https://pobb.in/2FlZU8rRPp3F", // given by Wesley, Nov 8, 2026: PoB's main skill is Ambush, the build is Static Strike
 ];
 const notBuilds = [
   "https://poe.ninja/poe1/builds", // the ladder: never recorded
@@ -88,7 +89,42 @@ function check(cond, msg) {
     const creators = await popup.$$eval("#creator option", (os) => os.map((o) => o.textContent));
     check(creators.includes("Test Creator"), "creator listed in the Creator filter");
     await popup.$eval("#search", (e) => { e.value = ""; e.dispatchEvent(new Event("input")); });
+    // Our main skill pick, then a main skill and a default loadout set by hand (only when the default build list is used).
+    if (builds.includes("https://pobb.in/2FlZU8rRPp3F")) {
+      const rowText = () => popup.$$eval(".build", (els) => { const r = els.find((e) => e.title === "https://pobb.in/2FlZU8rRPp3F"); return r && r.innerText.replace(/\s+/g, " "); });
+      const openEditor = () => popup.$$eval(".build", (els) => els.find((e) => e.title === "https://pobb.in/2FlZU8rRPp3F").querySelector("button.icon").click());
+      check(/^[☆★]? ?Static Strike Slayer/.test(await rowText()), "the Ambush-saved build is named Static Strike Slayer");
+      await openEditor();
+      await popup.waitForSelector(".editor select.main-skill");
+      await popup.select(".editor select.main-skill", "Ambush");
+      await popup.click(".editor button.primary");
+      await popup.waitForFunction(() => !document.querySelector(".editor"));
+      await popup.waitForFunction(() => Array.from(document.querySelectorAll(".build .name")).some((n) => n.textContent === "Ambush Slayer"), { timeout: 10000 });
+      check(true, "a main skill set by hand renames the build to Ambush Slayer");
+      await openEditor();
+      await popup.waitForSelector(".editor select.default-loadout");
+      await popup.select(".editor select.default-loadout", "Endgame Red Maps");
+      await popup.click(".editor button.primary");
+      await popup.waitForFunction(() => !document.querySelector(".editor"));
+      await popup.waitForFunction(() => Array.from(document.querySelectorAll(".build")).some((r) => r.title === "https://pobb.in/2FlZU8rRPp3F" &&
+        r.querySelector("select.loadout") && r.querySelector("select.loadout").selectedOptions[0].textContent === "Loadout: Endgame Red Maps"), { timeout: 10000 });
+      const row = await rowText();
+      console.log("     row: " + row);
+      check(/^[☆★]? ?Static Strike Slayer/.test(row), "the default loadout (Endgame Red Maps) is shown first and names the build");
+    }
+    // Favorites: the filter with none, star one build, the filter shows just that one.
+    await popup.click("#favorites");
+    await popup.waitForFunction(() => /No favorites yet/.test(document.getElementById("list").textContent));
+    check(true, "favorites filter with nothing starred says so");
+    await popup.click("#favorites");
+    await popup.waitForFunction((n) => document.querySelectorAll(".build").length === n, {}, builds.length);
+    await popup.$$eval(".build", (els) => els.find((e) => e.title === "https://pobb.in/agb0V8xT8c-j").querySelector("button.star").click());
+    await popup.waitForFunction(() => document.querySelectorAll(".build button.star.on").length === 1);
+    await popup.click("#favorites");
+    await popup.waitForFunction(() => document.querySelectorAll(".build").length === 1);
+    check((await popup.$eval(".build", (e) => e.title)) === "https://pobb.in/agb0V8xT8c-j", "starred build is the only one under Favorites");
     await popup.screenshot({ path: shot, fullPage: true });
+    await popup.click("#favorites");
     console.log("screenshot: " + path.relative(root, shot));
     console.log("PASS");
   } finally {

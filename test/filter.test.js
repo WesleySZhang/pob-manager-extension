@@ -146,3 +146,49 @@ test("filter options include every loadout's values", () => {
   assert.deepEqual(o.ascendanciesByClass.Witch, ["Elementalist", "Occultist"]);
   assert.deepEqual(o.keystones, ["Mind Over Matter"]);
 });
+
+// ---------- main skill shown, and the default loadout ----------
+
+test("main skill shown: set by hand, else our pick, else PoB's", () => {
+  const view = (i) => ({ name: "As saved", saved: true, info: i });
+  const auto = { mainSkill: "Ambush", autoMainSkill: "Static Strike" };
+  assert.deepEqual(F.mainSkillOf({}, view(auto)), { skill: "Static Strike", source: "auto", pob: "Ambush" });
+  assert.deepEqual(F.mainSkillOf({ mainSkills: { "As saved": "Ambush" } }, view(auto)), { skill: "Ambush", source: "manual", pob: "Ambush" });
+  assert.deepEqual(F.mainSkillOf({ mainSkills: { Other: "Arc" } }, view(auto)).source, "auto", "set for another loadout only");
+  assert.deepEqual(F.mainSkillOf({}, view({ mainSkill: "Arc", autoMainSkill: "Arc" })), { skill: "Arc", source: "pob", pob: "Arc" });
+  assert.deepEqual(F.mainSkillOf({}, view({ mainSkill: "Arc" })), { skill: "Arc", source: "pob", pob: "Arc" }, "read by an older reader");
+});
+
+test("the generated name follows the main skill shown; search finds it", () => {
+  const b = build("s", {}, { ascendancy: "Slayer", mainSkill: "Ambush", autoMainSkill: "Static Strike", skills: ["Ambush", "Static Strike"] });
+  assert.equal(F.displayName(b), "Static Strike Slayer");
+  assert.equal(F.displayName(Object.assign({}, b, { mainSkills: { "As saved": "Ambush" } })), "Ambush Slayer");
+  assert.equal(F.displayName(Object.assign({}, b, { customName: "Mine" })), "Mine");
+  assert.deepEqual(keys(F.apply([b], { search: "static strike slayer" })), ["s"]);
+});
+
+test("the default loadout is shown first and names the build; unknown names fall back to the saved one", () => {
+  const b = Object.assign({}, withLoadouts, { defaultView: "Endgame" });
+  assert.equal(F.defaultViewIndex(withLoadouts), 0);
+  assert.equal(F.defaultViewIndex(b), 1);
+  assert.equal(F.defaultViewIndex(Object.assign({}, withLoadouts, { defaultView: "Gone" })), 0);
+  assert.deepEqual(F.apply([b], {}).map((r) => r.view), [1]);
+  assert.equal(F.displayName(b), "Discipline Elementalist");
+  // A filter only the saved loadout matches still shows that one.
+  assert.deepEqual(F.apply([b], { search: "fireball" }).map((r) => r.view), [0]);
+});
+
+// ---------- favorites ----------
+
+test("favorites only: starred builds, including a starred one still being read; other filters still apply", () => {
+  const list = [
+    build("f1", { lastSeen: 3, favorite: true }, { mainSkill: "Arc", skills: ["Arc"] }),
+    build("n1", { lastSeen: 2 }, { mainSkill: "Arc", skills: ["Arc"] }),
+    { key: "f2", link: "https://pobb.in/f2", label: "pobb.in", status: "pending", lastSeen: 1, visits: 1, favorite: true },
+    build("x1", { lastSeen: 0, favorite: "yes" }, {}),
+  ];
+  assert.deepEqual(keys(F.apply(list, { favorites: true })), ["f1", "f2"], "only favorite === true counts");
+  assert.deepEqual(keys(F.apply(list, { favorites: true, search: "arc" })), ["f1"]);
+  assert.deepEqual(keys(F.apply(list, { favorites: false })), ["f1", "n1", "f2", "x1"]);
+  assert.equal(F.EMPTY.favorites, false, "Clear all turns it off");
+});

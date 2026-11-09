@@ -92,3 +92,9 @@ button.danger { color: var(--danger); }
 .editor { display: grid; grid-template-columns: 60px 1fr; gap: 6px 8px; align-items: center; margin-top: 6px; cursor: default; }
 .editor label { color: var(--muted); }
 .editor .buttons { grid-column: 2; display: flex; gap: 6px; }
+.meta .skill.manual { text-decoration: underline dotted var(--accent); text-underline-offset: 3px; }
+.editor { grid-template-columns: 96px 1fr; }
+button.star { border: 0; background: transparent; padding: 0 2px; font-size: 15px; line-height: 1; color: var(--muted); }
+button.star:hover, button.star.on { color: var(--accent); }
+.fav-filter { white-space: nowrap; color: var(--muted); }
+.fav-filter[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }

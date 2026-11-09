@@ -170,3 +170,58 @@ test("refresh of an unknown key does nothing", async () => {
   const { rec } = await setup({});
   assert.equal(await rec.refresh("pobbin:none"), undefined);
 });
+
+test("main skill per loadout and the default loadout: saved, cleared, kept through a re-read", async () => {
+  const { rec } = await setup({ [RAW]: CODE });
+  await rec.visit(LINK);
+  let r = await rec.edit("pobbin:abc123", { mainSkill: { view: "As saved", skill: " Arc " }, defaultView: "Endgame" });
+  assert.deepEqual(r.mainSkills, { "As saved": "Arc" });
+  assert.equal(r.defaultView, "Endgame");
+  r = await rec.edit("pobbin:abc123", { mainSkill: { view: "Leveling", skill: "Cyclone" } });
+  assert.deepEqual(r.mainSkills, { "As saved": "Arc", Leveling: "Cyclone" });
+  r = await rec.refresh("pobbin:abc123");
+  assert.deepEqual(r.mainSkills, { "As saved": "Arc", Leveling: "Cyclone" });
+  assert.equal(r.defaultView, "Endgame");
+  r = await rec.edit("pobbin:abc123", { mainSkill: { view: "As saved", skill: "" }, defaultView: "" });
+  assert.deepEqual(r.mainSkills, { Leveling: "Cyclone" });
+  assert.equal("defaultView" in r, false);
+  r = await rec.edit("pobbin:abc123", { mainSkill: { view: "Leveling", skill: "" } });
+  assert.equal("mainSkills" in r, false);
+  r = await rec.edit("pobbin:abc123", { mainSkill: { view: "", skill: "Arc" } });
+  assert.equal("mainSkills" in r, false, "a main skill needs a loadout");
+});
+
+test("builds read by an older reader are read again on upgrade, keeping the user's edits", async () => {
+  const B = require("../src/buildinfo.js");
+  const { rec, store, fetch } = await setup({ [RAW]: CODE });
+  await rec.visit(LINK);
+  await rec.edit("pobbin:abc123", { customName: "Mine", mainSkill: { view: "As saved", skill: "Arc" } });
+  assert.equal(await rec.upgrade(), 0, "nothing to do when every build is current");
+  await store.updateBuild("pobbin:abc123", (r) => { r.info = Object.assign({}, r.info, { readerVersion: 1 }); delete r.info.autoMainSkill; return r; });
+  await store.putBuild({ key: "pobbin:failed1", site: "pobbin", id: "failed1", link: "https://pobb.in/failed1", status: "error", visits: 1 });
+  assert.equal(await rec.upgrade(), 1, "only readable builds; failed ones wait for a visit or Retry");
+  const r = await store.getBuild("pobbin:abc123");
+  assert.equal(r.info.readerVersion, B.READER_VERSION);
+  assert.equal(r.info.autoMainSkill, "Arc");
+  assert.equal(r.customName, "Mine");
+  assert.deepEqual(r.mainSkills, { "As saved": "Arc" });
+  assert.equal(fetch.calls.length, 2);
+});
+
+test("favorite: starred, unstarred, kept through a re-read and an upgrade", async () => {
+  const { rec, store } = await setup({ [RAW]: CODE });
+  await rec.visit(LINK);
+  let r = await rec.edit("pobbin:abc123", { favorite: true });
+  assert.equal(r.favorite, true);
+  r = await rec.refresh("pobbin:abc123");
+  assert.equal(r.favorite, true);
+  await store.updateBuild("pobbin:abc123", (x) => { x.info.readerVersion = 0; return x; });
+  await rec.upgrade();
+  assert.equal((await store.getBuild("pobbin:abc123")).favorite, true);
+  r = await rec.edit("pobbin:abc123", { favorite: false });
+  assert.equal("favorite" in r, false);
+  r = await rec.edit("pobbin:abc123", { favorite: "true" });
+  assert.equal("favorite" in r, false, "only the value true stars a build");
+  r = await rec.edit("pobbin:abc123", { creator: "x" });
+  assert.equal("favorite" in r, false, "other edits leave it alone");
+});

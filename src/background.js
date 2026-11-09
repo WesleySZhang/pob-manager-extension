@@ -34,6 +34,14 @@ ext.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
   recorder().then((r) => r.visit(url)).then(notifyPopup, function (e) { console.warn("PoB Manager: " + (e && e.message)); });
 });
 
+// Builds read by an older reader version are read again when the browser starts or the extension is installed,
+// updated or reloaded.
+function upgradeStored() {
+  recorder().then((r) => r.upgrade()).then(function (n) { if (n) notifyPopup(); }, function (e) { console.warn("PoB Manager: " + (e && e.message)); });
+}
+ext.runtime.onStartup.addListener(upgradeStored);
+ext.runtime.onInstalled.addListener(upgradeStored);
+
 function notifyPopup() {
   // The popup listens while it is open; nobody listening is fine.
   try {

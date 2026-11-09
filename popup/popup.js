@@ -80,6 +80,7 @@
     filters.keystones = filters.keystones.filter((k) => opts.keystones.indexOf(k) !== -1);
     filters.uniques = filters.uniques.filter((u) => opts.uniques.indexOf(u) !== -1);
     $("sort").value = filters.sort;
+    $("favorites").setAttribute("aria-pressed", filters.favorites ? "true" : "false");
     if (document.activeElement !== $("search")) $("search").value = filters.search;
     for (const k of ["dpsMin", "dpsMax", "lifeMin", "lifeMax"]) if (document.activeElement !== $(k)) $(k).value = filters[k];
     $("keystoneList").replaceChildren(...opts.keystones.map((k) => el("option", { value: k })));
@@ -123,7 +124,8 @@
       return;
     }
     if (rows.length === 0) {
-      list.replaceChildren(el("div", { class: "empty", text: "No builds match these filters." }));
+      const noFavorites = filters.favorites && !builds.some((x) => x.favorite === true);
+      list.replaceChildren(el("div", { class: "empty", text: noFavorites ? "No favorites yet. Click ☆ on a build to add it." : "No builds match these filters." }));
       return;
     }
     list.replaceChildren(...rows.map(renderRow));
@@ -138,8 +140,12 @@
     const info = view ? view.info : null;
 
     const name = el("span", { class: "name", text: F.displayName(b), title: F.displayName(b) });
-    const line1 = el("div", { class: "line" }, [name,
-      el("button", { class: "icon", type: "button", title: "Edit name and creator", text: "✎", onclick: (e) => { e.stopPropagation(); editing = editing === b.key ? null : b.key; render(); } }),
+    const fav = b.favorite === true;
+    const star = el("button", { type: "button", class: "star" + (fav ? " on" : ""), text: fav ? "★" : "☆",
+      title: fav ? "Remove from favorites" : "Add to favorites", "aria-pressed": fav ? "true" : "false",
+      onclick: (e) => { e.stopPropagation(); send({ type: "edit", key: b.key, changes: { favorite: !fav } }).then(reload); } });
+    const line1 = el("div", { class: "line" }, [star, name,
+      el("button", { class: "icon", type: "button", title: "Edit name, creator, main skill and default loadout", text: "✎", onclick: (e) => { e.stopPropagation(); editing = editing === b.key ? null : b.key; render(); } }),
       b.creator ? el("span", { class: "by", text: "by " + b.creator }) : null,
       el("span", { class: "site", text: b.label })]);
 
@@ -149,7 +155,13 @@
     else {
       const parts = [];
       parts.push(el("span", { text: (info.ascendancy || info.className || "?") + (b.info.level ? " · Lv " + b.info.level : "") }));
-      if (info.mainSkill) parts.push(el("span", { class: "skill", text: "· " + info.mainSkill }));
+      const ms = F.mainSkillOf(b, view);
+      if (ms.skill) {
+        const note = ms.source === "manual" ? "Main skill set by you" + (ms.pob ? " · PoB's main skill: " + ms.pob : "")
+          : ms.source === "auto" ? "PoB's main skill is " + (ms.pob || "none") + " (a utility skill); this is the damage skill with the most supports"
+          : "PoB's main skill";
+        parts.push(el("span", { class: "skill" + (ms.source === "manual" ? " manual" : ""), text: "· " + ms.skill, title: note }));
+      }
       if (info.ruthless) parts.push(el("span", { class: "tag", text: "Ruthless" }));
       if (info.alternate) parts.push(el("span", { class: "tag", text: "Alternate" }));
       if (info.patch) parts.push(el("span", { class: "tag", text: info.patch, title: "Patch from the passive tree: " + (info.patchLabel || info.patch) }));
@@ -176,16 +188,34 @@
     ]);
 
     const children = [line1, line2, actions];
-    if (editing === b.key) children.push(renderEditor(b));
+    if (editing === b.key) children.push(renderEditor(b, views, vi));
     return el("div", { class: "build", title: b.link, onclick: () => ext.tabs.create({ url: b.link }) }, children);
   }
 
-  function renderEditor(b) {
-    const nameIn = el("input", { value: b.customName || "", placeholder: b.info ? B.defaultName(b.info) : "Name" });
+  /** Name, creator, the main skill of the loadout on show, and the default loadout. */
+  function renderEditor(b, views, vi) {
+    const view = views[vi];
+    const nameIn = el("input", { value: b.customName || "", placeholder: b.info ? F.displayName(Object.assign({}, b, { customName: "" })) : "Name" });
     const creatorIn = el("input", { value: b.creator || "", placeholder: "Who made the build (optional)" });
+    let skillIn = null, defaultIn = null;
+    if (view) {
+      const auto = view.info.autoMainSkill || view.info.mainSkill;
+      const manual = (b.mainSkills && b.mainSkills[view.name]) || "";
+      skillIn = el("select", { class: "main-skill" }, [el("option", { value: "", text: "Automatic" + (auto ? " (" + auto + ")" : "") })]
+        .concat((view.info.activeSkills || []).map((s) => el("option", { value: s, text: s }))));
+      skillIn.value = manual;
+      if (views.length > 1) {
+        defaultIn = el("select", { class: "default-loadout" }, [el("option", { value: "", text: "As PoB saved it" })]
+          .concat(views.map((v) => el("option", { value: v.name, text: v.name + (v.saved ? " (saved)" : "") }))));
+        defaultIn.value = views.some((v) => v.name === b.defaultView) ? b.defaultView : "";
+      }
+    }
     function save() {
-      send({ type: "edit", key: b.key, changes: { customName: nameIn.value, creator: creatorIn.value } }).then(function (r) {
-        if (r.ok) editing = null;
+      const changes = { customName: nameIn.value, creator: creatorIn.value };
+      if (skillIn) changes.mainSkill = { view: view.name, skill: skillIn.value };
+      if (defaultIn) changes.defaultView = defaultIn.value;
+      send({ type: "edit", key: b.key, changes: changes }).then(function (r) {
+        if (r.ok) { editing = null; delete viewChoice[b.key]; }
         reload();
       });
     }
@@ -198,6 +228,8 @@
     const box = el("div", { class: "editor", onclick: (e) => e.stopPropagation() }, [
       el("label", { text: "Name" }), nameIn,
       el("label", { text: "Creator" }), creatorIn,
+      skillIn ? el("label", { text: "Main skill", title: views.length > 1 ? "For the loadout on show: " + view.name : "" }) : null, skillIn,
+      defaultIn ? el("label", { text: "Default loadout" }) : null, defaultIn,
       el("div", { class: "buttons" }, [
         el("button", { type: "button", class: "primary", text: "Save", onclick: save }),
         el("button", { type: "button", text: "Cancel", onclick: () => { editing = null; render(); } })]),
@@ -216,6 +248,7 @@
     }
     $("keystoneInput").addEventListener("change", (e) => addChip("keystones", e.target, keyOptions ? keyOptions.keystones : []));
     $("uniqueInput").addEventListener("change", (e) => addChip("uniques", e.target, keyOptions ? keyOptions.uniques : []));
+    $("favorites").addEventListener("click", () => { filters.favorites = !filters.favorites; changed(); });
     $("clearAll").addEventListener("click", () => { filters = Object.assign({}, F.EMPTY, { sort: filters.sort }); changed(); });
     ext.runtime.onMessage.addListener((msg) => { if (msg && msg.type === "builds-changed") reload(); });
   }

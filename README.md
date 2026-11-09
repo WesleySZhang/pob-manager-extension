@@ -38,6 +38,13 @@ site it came from.
 - Per build: rename it, note who made it, switch between its PoB loadouts, open the link, open it in PoB
   (`pob://` link), copy the link, delete.
 - DPS is "as exported": what PoB calculated with the uploader's settings. Only the loadout the build was saved on has stats.
+- **Main skill.** PoB's main skill is whichever skill group the author left selected, so a Static Strike build saved on
+  Ambush shows as "Ambush" in PoB and on pobb.in. When PoB's main skill deals no damage (movement, aura, herald, guard,
+  banner, or a buff or curse without damage, by PoB's own skill types), the popup shows the damage skill with the most
+  supports instead; hover the skill to see PoB's. You can also set the main skill by hand, per loadout (✎).
+- **Default loadout.** Pick the loadout a build shows first (✎); it also names the build.
+- **Favorites.** Click ☆ on a build to star it; **★ Favorites** next to the search shows only starred builds.
+- Builds read by an older version of the extension are read again when the browser starts or the extension reloads.
 
 ## Build and install
 
@@ -68,6 +75,7 @@ running headless (PoE-Sim's pinned checkout and LuaJIT build):
 | --- | --- |
 | `npm test` | Unit tests, plus every fixture build in `test/fixtures/golden` against the fields headless PoB showed for it (`expected.json`), loadouts included. |
 | `npm run accuracy` | The reader vs headless PoB on real builds (default: PoE-Sim's poe.ninja sweep and golden builds): class, ascendancy, level, main skill, keystones, uniques, and every loadout. Exact match. |
+| `node tools/main_skill_review.js` | After `npm run accuracy`: every build where our main skill pick differs from PoB's, to review by hand. |
 | `npm run e2e:edge` | Real Edge with the extension: visits share links and pages that must be ignored, then uses the popup. |
 | `npm run e2e:firefox` | Real Firefox with a test copy of the extension: records a share link, ignores the ladder, renames through the popup. |
 

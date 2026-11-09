@@ -105,6 +105,9 @@ for id, g in pairs(data.gems) do
 	gems[id] = { n = g.name, g = g.gameId, v = g.variantId, s = g.grantedEffectId, e = effects }
 end
 
+-- The skill types (Data/Global.lua SkillType) src/buildinfo.js uses to tell damage skills from utility ones.
+local typeNames = { "Attack", "Damage", "DamageOverTime", "Minion", "CreatesMinion", "Travel", "Blink", "Aura", "Herald", "Guard",
+	"Banner", "Buff", "AppliesCurse", "Hex", "Mark", "Warcry" }
 local skills = {}
 for id, s in pairs(data.skills) do
 	if type(s) == "table" and s.name then
@@ -112,6 +115,11 @@ for id, s in pairs(data.skills) do
 		if s.support then e.sup = 1 end
 		if s.unsupported then e.uns = 1 end
 		if s.hasGlobalEffect then e.glob = 1 end
+		local t = {}
+		for _, name in ipairs(typeNames) do
+			if s.skillTypes and SkillType[name] and s.skillTypes[SkillType[name]] then t[#t + 1] = name end
+		end
+		if #t > 0 then e.t = t end
 		skills[id] = e
 	end
 end
