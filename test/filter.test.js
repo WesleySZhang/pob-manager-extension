@@ -120,17 +120,35 @@ const withLoadouts = build("L", { lastSeen: 5 }, {
   ],
 });
 
-test("a build matches when any loadout does, and shows the first matching one, the saved one first", () => {
-  assert.deepEqual(F.apply([withLoadouts], { ascendancy: "Elementalist" }).map((r) => r.view), [1]);
-  assert.deepEqual(F.apply([withLoadouts], { search: "fireball" }).map((r) => r.view), [0]);
+// Wesley, Nov 8, 2026: search and filters look only at the default loadout (set by hand, else the saved one).
+test("only the default loadout is searched and filtered; other loadouts never match", () => {
   assert.deepEqual(F.apply([withLoadouts], {}).map((r) => r.view), [0]);
-  assert.deepEqual(F.apply([withLoadouts], { keystones: ["Mind Over Matter"] }).map((r) => r.view), [1]);
-  assert.deepEqual(F.apply([withLoadouts], { search: "endgame" }).map((r) => r.view), [1], "the loadout's name is searchable");
+  assert.deepEqual(F.apply([withLoadouts], { search: "fireball" }).map((r) => r.view), [0]);
+  assert.deepEqual(F.apply([withLoadouts], { search: "leveling" }).map((r) => r.view), [0], "the default loadout's name is searchable");
+  assert.deepEqual(F.apply([withLoadouts], { ascendancy: "Elementalist" }), [], "only the non-default Endgame loadout is Elementalist");
+  assert.deepEqual(F.apply([withLoadouts], { keystones: ["Mind Over Matter"] }), []);
+  assert.deepEqual(F.apply([withLoadouts], { search: "endgame" }), []);
+  assert.deepEqual(F.apply([withLoadouts], { search: "discipline" }), []);
 });
 
-test("DPS and Life ranges only match the saved loadout, the one with stats", () => {
-  assert.deepEqual(F.apply([withLoadouts], { ascendancy: "Elementalist", dpsMin: "1m" }), []);
-  assert.deepEqual(F.apply([withLoadouts], { ascendancy: "Occultist", dpsMin: "1m" }).map((r) => r.view), [0]);
+// Wesley, Nov 8, 2026: no calculating other loadouts; the build's numbers are the ones PoB saved, whichever loadout is
+// the default (PoB saves <PlayerStat> for the saved state only: Modules/Build.lua buildMode:Save).
+test("DPS and Life ranges use the saved stats, whichever loadout is the default", () => {
+  assert.deepEqual(F.apply([withLoadouts], { dpsMin: "1m" }).map((r) => r.view), [0]);
+  const endgame = Object.assign({}, withLoadouts, { defaultView: "Endgame" });
+  assert.deepEqual(F.apply([endgame], { dpsMin: "1m" }).map((r) => r.view), [1], "Endgame is the default; the saved 2M DPS applies");
+  assert.deepEqual(F.apply([endgame], { lifeMax: "4k" }), [], "saved Life is 5000");
+  assert.deepEqual(F.apply([endgame], { ascendancy: "Elementalist", lifeMin: "4k" }).map((r) => r.view), [1], "other filters still use the default loadout");
+});
+
+test("DPS and Life sorts use the saved stats, whichever loadout is the default", () => {
+  const big = build("big", { lastSeen: 1 }, { dps: 9e6, life: 9000,
+    loadouts: [{ name: "Saved", active: true, keystones: [], uniques: [] }, { name: "Other", active: false, keystones: [], uniques: [] }] });
+  const bigOther = Object.assign({}, big, { key: "bigOther", defaultView: "Other", info: Object.assign({}, big.info, { dps: 1e6, life: 1000 }) });
+  assert.deepEqual(keys(F.apply([bigOther, withLoadouts, big], { sort: "dps" })), ["big", "L", "bigOther"]);
+  assert.deepEqual(keys(F.apply([bigOther, withLoadouts, big], { sort: "life" })), ["big", "L", "bigOther"]);
+  const none = build("none", {}, { dps: null, life: null });
+  assert.deepEqual(keys(F.apply([none, bigOther], { sort: "dps" })), ["bigOther", "none"], "no saved stat: last");
 });
 
 test("views: loadouts, with 'As saved' first when the saved state is none of them", () => {
@@ -141,10 +159,14 @@ test("views: loadouts, with 'As saved' first when the saved state is none of the
   assert.deepEqual(F.viewsOf({ key: "x" }), []);
 });
 
-test("filter options include every loadout's values", () => {
-  const o = F.filterOptions([withLoadouts], leagues);
-  assert.deepEqual(o.ascendanciesByClass.Witch, ["Elementalist", "Occultist"]);
+test("filter options come from the default loadout only, so every option can match", () => {
+  let o = F.filterOptions([withLoadouts], leagues);
+  assert.deepEqual(o.ascendanciesByClass.Witch, ["Occultist"]);
+  assert.deepEqual(o.keystones, []);
+  o = F.filterOptions([Object.assign({}, withLoadouts, { defaultView: "Endgame" })], leagues);
+  assert.deepEqual(o.ascendanciesByClass.Witch, ["Elementalist"]);
   assert.deepEqual(o.keystones, ["Mind Over Matter"]);
+  assert.deepEqual(F.filterOptions([{ key: "p", status: "pending", creator: "Ziz" }], leagues).creators, ["Ziz"], "a build not read yet still gives its creator");
 });
 
 // ---------- main skill shown, and the default loadout ----------
@@ -174,8 +196,9 @@ test("the default loadout is shown first and names the build; unknown names fall
   assert.equal(F.defaultViewIndex(Object.assign({}, withLoadouts, { defaultView: "Gone" })), 0);
   assert.deepEqual(F.apply([b], {}).map((r) => r.view), [1]);
   assert.equal(F.displayName(b), "Discipline Elementalist");
-  // A filter only the saved loadout matches still shows that one.
-  assert.deepEqual(F.apply([b], { search: "fireball" }).map((r) => r.view), [0]);
+  // With Endgame as the default, a filter only the saved loadout matches no longer finds the build.
+  assert.deepEqual(F.apply([b], { search: "fireball" }), []);
+  assert.deepEqual(F.apply([b], { search: "discipline" }).map((r) => r.view), [1]);
 });
 
 // ---------- favorites ----------

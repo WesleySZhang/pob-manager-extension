@@ -12,7 +12,6 @@
 
   let builds = [];
   let filters = Object.assign({}, F.EMPTY);
-  const viewChoice = {}; // build key -> view index picked in its Loadout drop-down (this popup session)
   let editing = null; // key of the build whose editor is open
   let confirmDelete = null;
   const expanded = new Set(); // keys of the rows open in this popup session
@@ -132,13 +131,13 @@
       return;
     }
     list.replaceChildren(...rows.map(renderRow));
+    fitStats(list);
   }
 
   function renderRow(row) {
     const b = row.build;
     const views = F.viewsOf(b);
-    let vi = row.view;
-    if (viewChoice[b.key] !== undefined && views[viewChoice[b.key]]) vi = viewChoice[b.key];
+    const vi = row.view;
     const view = views[vi];
     const info = view ? view.info : null;
 
@@ -149,10 +148,12 @@
       onclick: (e) => { e.stopPropagation(); send({ type: "edit", key: b.key, changes: { favorite: !fav } }).then(reload); } });
     const league = B.leagueAt(b.lastSeen, LEAGUES);
     const line1 = el("div", { class: "line" }, [star, name,
-      el("button", { class: "icon", type: "button", title: "Edit name, creator, main skill and default loadout", text: "✎", onclick: (e) => { e.stopPropagation(); editing = editing === b.key ? null : b.key; if (editing) expanded.add(b.key); render(); } }),
+      el("button", { class: "icon", type: "button", title: "Edit name, creator, main skill and default loadout", text: "✎", onclick: (e) => { e.stopPropagation(); editing = editing === b.key ? null : b.key; render(); } }),
       b.creator ? el("span", { class: "by", text: "by " + b.creator }) : null,
       el("span", { class: "site", text: b.label + " · " + shortDate(b.lastSeen),
-        title: "Last visited " + new Date(b.lastSeen).toLocaleString() + (league ? " (during " + league + ")" : "") + " · " + b.visits + " visit" + (b.visits === 1 ? "" : "s") })]);
+        title: "Last visited " + new Date(b.lastSeen).toLocaleString() + (league ? " (during " + league + ")" : "") + " · " + b.visits + " visit" + (b.visits === 1 ? "" : "s") }),
+      el("button", { type: "button", class: "rowbtn primary", text: "Open link", title: b.link, onclick: (e) => { e.stopPropagation(); ext.tabs.create({ url: b.link }); } }),
+      el("button", { type: "button", class: "rowbtn", text: "Open in PoB", title: b.pobUri, onclick: (e) => { e.stopPropagation(); ext.tabs.create({ url: b.pobUri }); } })]);
 
     let line2;
     if (b.status === "pending") line2 = el("div", { class: "line meta", text: "Reading build…" });
@@ -170,11 +171,12 @@
       if (info.ruthless) parts.push(el("span", { class: "tag", text: "Ruthless" }));
       if (info.alternate) parts.push(el("span", { class: "tag", text: "Alternate" }));
       if (info.patch) parts.push(el("span", { class: "tag", text: info.patch, title: "Patch from the passive tree: " + (info.patchLabel || info.patch) }));
-      const stats = view.saved;
-      parts.push(el("span", { class: "dps", text: "· " + (stats ? F.formatAmount(b.info.dps) : "—") + " DPS",
-        title: stats ? "As exported: " + (b.info.dpsStat || "no DPS stat") : "Stats exist only for the loadout the build was saved on" }));
-      parts.push(el("span", { text: "· " + (stats ? F.formatAmount(b.info.life) : "—") + " Life" }));
-      if (stats && b.info.es >= 1) parts.push(el("span", { text: "· " + F.formatAmount(b.info.es) + " ES" }));
+      // The saved stats, whichever loadout is the default: PoB saves stats for the saved loadout only.
+      const from = savedFrom(views);
+      parts.push(el("span", { class: "dps", text: "· " + F.formatAmount(b.info.dps) + " DPS",
+        title: "As exported: " + (b.info.dpsStat || "no DPS stat") + from }));
+      parts.push(el("span", { text: "· " + F.formatAmount(b.info.life) + " Life", title: "As exported" + from }));
+      if (b.info.es >= 1) parts.push(el("span", { text: "· " + F.formatAmount(b.info.es) + " ES", title: "As exported" + from }));
       line2 = el("div", { class: "line meta" }, parts);
     }
 
@@ -183,55 +185,72 @@
     if (open) children.push(renderDetails(b, views, vi));
     if (editing === b.key) children.push(renderEditor(b, views, vi));
     const toggle = () => { if (open) expanded.delete(b.key); else expanded.add(b.key); render(); };
+    // A mouse-up that ends a text selection also fires a click (on the row when the drag crosses into its summary):
+    // don't toggle then, so text in the row can be selected and copied.
+    const onClick = () => { if (String(window.getSelection() || "") !== "") return; toggle(); };
     return el("div", { class: "build" + (open ? " open" : ""), "data-link": b.link, tabindex: "0", role: "button", "aria-expanded": open ? "true" : "false",
-      onclick: toggle, onkeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); toggle(); } } }, children);
+      onclick: onClick, onkeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); toggle(); } } }, children);
+  }
+
+  /**
+   * Three stat columns are narrow: a line whose label no longer fits shows its value's short form (k, M, B; full
+   * value on hover) instead (Wesley, Nov 8, 2026). Measured after layout, so only values that need it are shortened.
+   */
+  function fitStats(container) {
+    for (const v of container.querySelectorAll(".stat .v[data-short]")) {
+      if (!v.dataset.short) continue;
+      const k = v.previousElementSibling;
+      if (k.scrollWidth > k.clientWidth) { v.textContent = v.dataset.short; v.title = v.dataset.full; }
+    }
+  }
+
+  /** " (loadout X)" naming the saved loadout the stats belong to, when the build has loadouts. */
+  function savedFrom(views) {
+    const v = views.length > 1 ? views.find((x) => x.saved) : null;
+    return v ? " (loadout " + v.name + ")" : "";
   }
 
   /** The expanded part: actions, then PoB's left-panel stats for the loadout on show, then what the build holds. */
   function renderDetails(b, views, vi) {
     const view = views[vi];
     const stop = (e) => e.stopPropagation();
-    const actions = el("div", { class: "actions" }, [
-      el("button", { type: "button", class: "primary", text: "Open link", title: b.link, onclick: (e) => { stop(e); ext.tabs.create({ url: b.link }); } }),
-      el("button", { type: "button", text: "Open in PoB", title: b.pobUri, onclick: (e) => { stop(e); ext.tabs.create({ url: b.pobUri }); } }),
-      el("button", { type: "button", text: "Copy link", onclick: (e) => { stop(e); navigator.clipboard.writeText(b.link).then(() => { e.target.textContent = "Copied"; }); } }),
-      b.status === "error" ? el("button", { type: "button", text: "Retry", onclick: (e) => { stop(e); send({ type: "retry", key: b.key }).then(reload); } }) : null,
-      el("span", { class: "spacer" }),
-      el("button", { type: "button", class: "danger", text: confirmDelete === b.key ? "Confirm delete" : "Delete",
-        onclick: (e) => { stop(e); if (confirmDelete !== b.key) { confirmDelete = b.key; render(); return; } confirmDelete = null; send({ type: "delete", key: b.key }).then(reload); } }),
-    ]);
-    const parts = [actions];
-    if (!view) return el("div", { class: "details", onclick: stop }, parts);
+    // The loadout on show, at the bottom of the expanded part (Wesley, Nov 8, 2026). Information only: a chip naming
+    // the default loadout (set with ✎, else the saved one); hovering or focusing it lists every loadout, marking the
+    // saved one (the one with stats) and the default. Nothing here can be picked.
+    const loadout = views.length > 1 && view ? el("span", { class: "loadout", tabindex: "0", "aria-describedby": "loadouts-" + b.key }, [
+      el("span", { class: "k", text: "Loadout" }),
+      el("span", { class: "v", text: view.name }),
+      el("span", { class: "count", text: views.length + " loadouts" }),
+      el("div", { class: "loadout-pop", role: "tooltip", id: "loadouts-" + b.key }, [el("div", { class: "section-title", text: "Loadouts in this build" })]
+        .concat(views.map((v) => el("div", { class: "item" + (v === view ? " on" : "") }, [
+          el("span", { class: "lname", text: v.name }),
+          v.saved ? el("span", { class: "tag", text: "saved · stats" }) : null,
+          v === view ? el("span", { class: "tag accent", text: "default" }) : null,
+        ])))
+        .concat([el("div", { class: "hint", text: "Set the default with ✎." })])),
+    ]) : null;
+    const retry = b.status === "error" ? el("button", { type: "button", text: "Retry", onclick: (e) => { stop(e); send({ type: "retry", key: b.key }).then(reload); } }) : null;
+    const del = el("button", { type: "button", class: "danger", text: confirmDelete === b.key ? "Confirm delete" : "Delete",
+      onclick: (e) => { stop(e); if (confirmDelete !== b.key) { confirmDelete = b.key; render(); return; } confirmDelete = null; send({ type: "delete", key: b.key }).then(reload); } });
+    // The bottom line (Wesley, Nov 8, 2026): the loadout chip on the left, Retry and Delete on the right.
+    const bottom = el("div", { class: "actions bottom" }, [loadout, el("span", { class: "spacer" }), retry, del]);
+    const parts = [];
+    if (!view) return el("div", { class: "details", onclick: stop }, [bottom]);
     const info = view.info;
 
-    if (views.length > 1) {
-      parts.push(el("div", { class: "loadout-row" }, [el("select", { class: "loadout", title: "Loadout",
-        onchange: (e) => { viewChoice[b.key] = Number(e.target.value); render(); } },
-        views.map((v, i) => { const o = el("option", { value: String(i), text: "Loadout: " + v.name + (v.saved ? " (saved)" : "") + (v.name === b.defaultView ? " (default)" : "") }); if (i === vi) o.selected = true; return o; }))]));
-    }
-
-    const ms = F.mainSkillOf(b, view);
-    const facts = [
-      ["Class", [info.className, info.ascendancy].filter(Boolean).join(" · ") + (info.bloodline ? " · " + info.bloodline : "")],
-      ["Main skill", (ms.skill || "—") + (ms.pob && ms.pob !== ms.skill ? " (PoB: " + ms.pob + ")" : "")],
-      ["Tree", (info.patchLabel || info.patch || "?") + (B.leagueForPatch(info.patch, LEAGUES) ? " · " + B.leagueForPatch(info.patch, LEAGUES) : "")],
-      ["Level", b.info.level ? String(b.info.level) : "—"],
-      ["Visited", b.visits + "× · first " + shortDate(b.firstSeen) + " · last " + shortDate(b.lastSeen)],
-    ];
-    parts.push(el("div", { class: "facts" }, [].concat(...facts.map(([k, v]) => [el("span", { class: "k", text: k }), el("span", { text: v })]))));
-
-    if (view.saved) {
+    {
+      // The saved stats, whichever loadout is the default (see renderRow).
       const sections = D.statSections(b.info, DATA.statDefs);
-      parts.push(el("div", { class: "stats" }, sections.map((s) => el("div", { class: "section" }, [el("div", { class: "section-title", text: s.title })]
-        .concat(s.rows.map((r) => el("div", { class: "stat", "data-stat": r.stat }, [el("span", { class: "k", text: r.label }), el("span", { class: "v", text: r.value })])))))));
+      parts.push(el("div", { class: "stats", title: "Stats as PoB saved them" + savedFrom(views) }, sections.map((s) => el("div", { class: "section" }, [el("div", { class: "section-title", text: s.title })]
+        .concat(s.rows.map((r) => el("div", { class: "stat", "data-stat": r.stat }, [el("span", { class: "k", text: r.label, title: r.label }),
+          el("span", { class: "v", text: r.value, "data-full": r.value, "data-short": r.short || "" })])))))));
       parts.push(el("div", { class: "note", text: "Stats as PoB saved them" + (b.info.dpsStat ? " (DPS: " + (DATA.statDefs[b.info.dpsStat] ? DATA.statDefs[b.info.dpsStat].l : b.info.dpsStat) + ")" : "") + ", with the uploader's configuration." }));
-    } else {
-      parts.push(el("div", { class: "note", text: "Stats exist only for the loadout the build was saved on" + (views.find((v) => v.saved) ? " (" + views.find((v) => v.saved).name + ")" : "") + "." }));
     }
 
     const list = (title, items) => (items && items.length ? el("div", { class: "list" }, [el("span", { class: "section-title", text: title })]
       .concat(items.map((x) => el("span", { class: "chip", text: x })))) : null);
-    parts.push(list("Keystones", info.keystones), list("Uniques", info.uniques), list("Skills", info.activeSkills));
+    parts.push(list("Keystones", info.keystones));
+    parts.push(bottom);
     return el("div", { class: "details", onclick: stop }, parts);
   }
 
@@ -258,7 +277,7 @@
       if (skillIn) changes.mainSkill = { view: view.name, skill: skillIn.value };
       if (defaultIn) changes.defaultView = defaultIn.value;
       send({ type: "edit", key: b.key, changes: changes }).then(function (r) {
-        if (r.ok) { editing = null; delete viewChoice[b.key]; }
+        if (r.ok) { editing = null; }
         reload();
       });
     }

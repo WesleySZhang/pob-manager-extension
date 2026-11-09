@@ -71,13 +71,14 @@
     return B.defaultName(view.info, mainSkillOf(build, view).skill);
   }
 
-  /** Values for the drop-downs and type-aheads, from every view of every build. */
+  /** Values for the drop-downs and type-aheads, from each build's default view (the one filters look at). */
   function filterOptions(builds, leagues) {
     const patches = new Set(), classes = new Set(), creators = new Set(), keystones = new Set(), uniques = new Set();
     const ascByClass = {};
     for (const b of builds) {
       if (b.creator && b.creator.trim()) creators.add(b.creator.trim());
-      for (const v of viewsOf(b)) {
+      const views = viewsOf(b);
+      for (const v of views.length ? [views[defaultViewIndex(b)]] : []) {
         const i = v.info;
         if (i.patch) patches.add(i.patch);
         if (i.className) {
@@ -124,8 +125,8 @@
     for (const u of f.uniques || []) if ((i.uniques || []).indexOf(u) === -1) return false;
     const ranged = (f.dpsMin || f.dpsMax || f.lifeMin || f.lifeMax);
     if (ranged) {
-      // Stats exist only for the state the build was saved in.
-      if (!view.saved) return false;
+      // The build's stats are the ones PoB saved (for the saved loadout; PoB saves no others). They are the build's
+      // numbers whichever loadout is the default (Wesley, Nov 8, 2026: no calculating, use the saved numbers).
       if (!inRange(build.info.dps, f.dpsMin, f.dpsMax) || !inRange(build.info.life, f.lifeMin, f.lifeMax)) return false;
     }
     const q = (f.search || "").trim().toLowerCase();
@@ -136,20 +137,23 @@
     return true;
   }
 
+  // Stats sort by the saved stats, whichever loadout is the default.
+  const savedStat = (k) => (b) => (b.info ? b.info[k] : null);
   const SORTS = {
     newest: { key: (b) => b.lastSeen, desc: true },
     oldest: { key: (b) => b.lastSeen, desc: false },
-    dps: { key: (b) => (b.info ? b.info.dps : null), desc: true },
-    life: { key: (b) => (b.info ? b.info.life : null), desc: true },
+    dps: { key: savedStat("dps"), desc: true },
+    life: { key: savedStat("life"), desc: true },
     level: { key: (b) => (b.info ? b.info.level : null), desc: true },
     name: { key: (b) => displayName(b).toLowerCase(), desc: false },
     visits: { key: (b) => b.visits, desc: true },
   };
 
   /**
-   * @returns {{build, view: number}[]} the builds that match, sorted, each with the view to show: the first matching
-   * one, trying the default loadout first, then the saved state, then the rest in order. Builds still being read or
-   * failed are kept when no filter is set.
+   * @returns {{build, view: number}[]} the builds that match, sorted, each with its view to show. Only the default
+   * view (the default loadout set by hand, else the saved state) is searched and filtered: a build whose default
+   * doesn't match is left out, whatever its other loadouts hold. Builds still being read or failed are kept when no
+   * filter is set.
    */
   function apply(builds, filters) {
     const f = Object.assign({}, EMPTY, filters || {});
@@ -163,14 +167,12 @@
       const views = viewsOf(b);
       if (views.length === 0) { if (!anyFilter) out.push({ build: b, view: -1 }); continue; }
       const first = defaultViewIndex(b);
-      const rank = (i) => (i === first ? 0 : views[i].saved ? 1 : 2);
-      const order = views.map((v, i) => i).sort((x, y) => rank(x) - rank(y) || x - y);
-      const hit = order.find((i) => viewMatches(b, views[i], f));
-      if (hit !== undefined) out.push({ build: b, view: hit });
+      if (viewMatches(b, views[first], f)) out.push({ build: b, view: first });
     }
     const s = SORTS[f.sort] || SORTS.newest;
+    const key = (row) => s.key(row.build, row.view >= 0 ? viewsOf(row.build)[row.view] : null);
     out.sort((x, y) => {
-      const a = s.key(x.build), b = s.key(y.build);
+      const a = key(x), b = key(y);
       const am = a === null || a === undefined, bm = b === null || b === undefined;
       if (am || bm) return am && bm ? 0 : am ? 1 : -1; // missing values last, whatever the direction
       const c = typeof a === "string" ? a.localeCompare(b) : a - b;

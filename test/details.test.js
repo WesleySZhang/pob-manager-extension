@@ -49,18 +49,18 @@ test("max hits list every element; an infinite one reads Immune", () => {
 
 test("resistances with over-cap; Chaos Inoculation hides chaos over-cap", () => {
   let r = rows({ stats: base, keystones: [] });
-  assert.equal(r.FireResist, "Fire Resistance: 75% (+30%)");
-  assert.equal(r.ColdResist, "Cold Resistance: 75%", "0 over-cap is not shown");
-  assert.equal(r.LightningResist, "Lightning Resistance: 75%", "no over-cap stat saved");
-  assert.equal(r.ChaosResist, "Chaos Resistance: -60% (+5%)");
+  assert.equal(r.FireResist, "Fire: 75% (+30%)");
+  assert.equal(r.ColdResist, "Cold: 75%", "0 over-cap is not shown");
+  assert.equal(r.LightningResist, "Lightning: 75%", "no over-cap stat saved");
+  assert.equal(r.ChaosResist, "Chaos: -60% (+5%)");
   r = rows({ stats: base, keystones: ["Chaos Inoculation"] });
-  assert.equal(r.ChaosResist, "Chaos Resistance: -60%");
+  assert.equal(r.ChaosResist, "Chaos: -60%");
 });
 
 test("attributes, movement speed (a mod: 1.3 -> +30%) and charges as current / max", () => {
   const r = rows({ stats: base, keystones: [] });
   assert.equal(r.Str, "Strength: 100");
-  assert.equal(r.EffectiveMovementSpeedMod, "Movement Speed Modifier: +30%");
+  assert.equal(r.EffectiveMovementSpeedMod, "Movement Speed: +30%");
   assert.equal(r.FrenzyChargesMax, "Frenzy Charges: 3 / 3");
   assert.equal(r.PowerChargesMax, "Power Charges: 0 / 3");
   assert.equal(r.EnduranceChargesMax, undefined, "not saved: not shown");
@@ -71,4 +71,35 @@ test("sections in PoB's order; nothing saved gives no sections", () => {
     ["Offence", "Max hit", "Life, Mana, ES", "Defences", "Resistances", "Attributes"]);
   assert.deepEqual(statSections({ stats: {} }, data.statDefs), []);
   assert.deepEqual(statSections(null, data.statDefs), []);
+});
+
+// Wesley, Nov 8, 2026: three stat columns; a value too long for its column is shortened with k, M or B. The short form
+// is built here; the popup swaps it in only when the line doesn't fit (checked in tools/e2e/edge.js).
+test("short form of long plain numbers: k, M, B with at most three significant digits; carries up a unit", () => {
+  const { shortValue } = require("../src/details.js");
+  assert.equal(shortValue("28,223,731.1"), "28.2M");
+  assert.equal(shortValue("5,644,625"), "5.64M");
+  assert.equal(shortValue("148,872"), "149k");
+  assert.equal(shortValue("1,000"), "1k");
+  assert.equal(shortValue("3,000,000,000"), "3B");
+  assert.equal(shortValue("+1,234.5"), "+1.23k", "sign kept (Total Net Recovery)");
+  assert.equal(shortValue("-2,500"), "-2.5k");
+  assert.equal(shortValue("999,950"), "1M", "not 1000k");
+  assert.equal(shortValue("999,999,999"), "1B", "not 1000M");
+});
+
+test("no short form for numbers under 1,000 or for anything that isn't a plain number", () => {
+  const { shortValue } = require("../src/details.js");
+  for (const t of ["999", "859.4", "75% (+16%)", "350%", "12 / 12", "Immune", "+30%", "", "1,2a"]) assert.equal(shortValue(t), null, t);
+});
+
+test("each row carries its short form", () => {
+  const all = statSections({ stats: base, keystones: [] }, data.statDefs).flatMap((s) => s.rows);
+  const by = Object.fromEntries(all.map((r) => [r.stat, r.short]));
+  assert.equal(by.CombinedDPS, "1.23M");
+  assert.equal(by.TotalEHP, "50k");
+  assert.equal(by.FireResist, null);
+  assert.equal(by.FrenzyChargesMax, null);
+  assert.equal(by.ChaosMaximumHitTaken, null, "Immune");
+  assert.equal(by.Str, null, "100");
 });

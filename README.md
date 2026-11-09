@@ -35,13 +35,19 @@ site it came from.
 
 - Patch drop-down (with the league), class and ascendancy drop-downs, search by name, creator or gem, sort.
 - More filters: creator, DPS and Life ranges (`1.5m`, `800k`), keystones and uniques.
-- Each build is a two-line row. **Click it to expand** it: buttons to open the link, open it in PoB (`pob://` link),
-  copy the link and delete; the Loadout drop-down; and Path of Building's left panel for the build as saved, with PoB's
-  own labels and numbers: DPS lines, max hits (phys, fire, cold, lightning, chaos), EHP, life, mana, ES and regen,
+- **Search, filters and sorting look only at each build's default loadout** (the one set by hand, else the saved one).
+  A build whose other loadouts would match is not shown.
+- Each build is a two-line row with **Open link** and **Open in PoB** (`pob://` link) buttons. **Click the row to
+  expand** it (selecting text in it doesn't collapse it): Path of Building's left panel for the build as saved, in three
+  columns, with PoB's numbers: DPS lines, max hits (phys, fire, cold, lightning, chaos), EHP, life, mana, ES and regen,
   armour, evasion, block, spell block, spell suppression, resistances with over-cap, attributes, movement speed and
-  charges. Keystones, uniques and skills are listed below.
-- ✎ on a row: rename it, note who made it, set its main skill or default loadout.
-- DPS is "as exported": what PoB calculated with the uploader's settings. Only the loadout the build was saved on has stats.
+  charges. A value too long for its column is shortened to k, M or B (the full number on hover). Then the keystones and,
+  on the bottom line, the loadout on show (hover it to see every loadout, with the saved and default ones marked;
+  nothing to pick, the default is set with ✎) and Delete.
+- ✎ on a row: rename it, note who made it, set its main skill or default loadout. It opens without expanding the row.
+- DPS is "as exported": what PoB calculated with the uploader's settings. A PoB code holds stats for the loadout it was
+  saved on only (pobb.in and poe.ninja show the same ones), so those are the build's stats on the row, in the panel and
+  in the DPS/Life filters and sorts, whichever loadout is the default. Nothing is calculated.
 - **Main skill.** PoB's main skill is whichever skill group the author left selected, so a Static Strike build saved on
   Ambush shows as "Ambush" in PoB and on pobb.in. When PoB's main skill deals no damage (movement, aura, herald, guard,
   banner, or a buff or curse without damage, by PoB's own skill types), the popup shows the damage skill with the most
