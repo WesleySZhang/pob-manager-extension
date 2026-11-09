@@ -1,0 +1,23 @@
+{
+  "name": "pob-manager-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser extension: records the Path of Building share links you open and lists them in the toolbar popup",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "build": "node tools/build.js",
+    "data:pob": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/gen_pobdata.ps1",
+    "data:leagues": "node tools/gen_leagues.js",
+    "fixtures": "node tools/make_fixtures.js",
+    "accuracy": "node tools/accuracy.js",
+    "e2e:edge": "npm run build && node tools/e2e/edge.js",
+    "icons": "node tools/icons.js",
+    "e2e:firefox": "npm run build && node tools/e2e/firefox.js"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "fake-indexeddb": "^6.0.0",
+    "puppeteer-core": "^24.43.1"
+  },
+  "license": "MIT"
+}

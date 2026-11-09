@@ -1,0 +1,94 @@
+/* Look: poe.ninja as a reference (dark slate, compact rows, thin dividers, one accent). All colours live here. */
+:root {
+  --bg: #11141b;
+  --panel: #191d27;
+  --panel-2: #222735;
+  --line: #2b3142;
+  --text: #e4e7ee;
+  --muted: #8a93a8;
+  --accent: #d9a84e;
+  --accent-text: #15120a;
+  --danger: #e06c6c;
+  --tag: #2f3647;
+  --focus: #5b8def;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  width: 560px;
+  max-height: 600px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.muted { color: var(--muted); }
+
+.top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 10px 12px 6px; border-bottom: 1px solid var(--line); background: var(--panel);
+}
+.top h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .2px; }
+
+.filters { padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.row { display: flex; gap: 6px; margin-bottom: 6px; }
+.row > select { flex: 1; min-width: 0; }
+#search { flex: 1; min-width: 0; }
+.sort { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+
+select, input, button {
+  font: inherit; color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px;
+}
+input::placeholder { color: var(--muted); }
+select:focus, input:focus, button:focus-visible { outline: 1px solid var(--focus); outline-offset: 0; }
+button { cursor: pointer; }
+button:hover { border-color: var(--muted); }
+
+details summary { cursor: pointer; color: var(--muted); padding: 2px 0; user-select: none; }
+details[open] summary { margin-bottom: 6px; }
+.grid { display: grid; grid-template-columns: 74px 1fr; gap: 6px 8px; align-items: center; }
+.grid label { color: var(--muted); }
+.range { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.range input { width: 90px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chips input { width: 150px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px;
+  background: var(--tag); border-radius: 10px; font-size: 12px;
+}
+.chip button { border: 0; background: transparent; padding: 0 4px; color: var(--muted); }
+.clear { text-align: right; margin-top: 6px; }
+
+#list { overflow-y: auto; max-height: 420px; }
+.empty { padding: 24px 16px; color: var(--muted); text-align: center; }
+
+.build {
+  padding: 7px 12px 8px; border-bottom: 1px solid var(--line); cursor: pointer; position: relative;
+  border-left: 3px solid transparent;
+}
+.build:hover { background: var(--panel); border-left-color: var(--accent); }
+.line { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.by { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.site { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.meta { color: var(--muted); font-size: 12px; margin-top: 2px; flex-wrap: wrap; }
+.meta .skill { color: var(--text); }
+.meta .dps { color: var(--accent); }
+.date { margin-left: auto; white-space: nowrap; }
+.tag { background: var(--tag); color: var(--text); border-radius: 3px; padding: 0 5px; font-size: 11px; }
+.actions { display: flex; gap: 6px; margin-top: 5px; align-items: center; }
+.actions button, .actions select { font-size: 12px; padding: 2px 6px; }
+.actions .loadout { max-width: 220px; }
+.actions .spacer { flex: 1; }
+button.icon { padding: 0 4px; border-color: transparent; background: transparent; color: var(--muted); }
+button.icon:hover { color: var(--text); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--danger); }
+.error { color: var(--danger); font-size: 12px; }
+
+.editor { display: grid; grid-template-columns: 60px 1fr; gap: 6px 8px; align-items: center; margin-top: 6px; cursor: default; }
+.editor label { color: var(--muted); }
+.editor .buttons { grid-column: 2; display: flex; gap: 6px; }

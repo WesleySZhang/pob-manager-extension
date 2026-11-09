@@ -1,0 +1,471 @@
+{
+  "source": "headless Path of Building v2.67.2 (b32759a) via tools/pob_fields.lua; written by tools/make_fixtures.js",
+  "builds": {
+    "abyss_belt.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": []
+    },
+    "abyss_tree_socket.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": []
+    },
+    "armour_block_heavy_strike.xml": {
+      "ascendancy": null,
+      "className": "Marauder",
+      "keystones": [
+        "Unwavering Stance"
+      ],
+      "level": 70,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Marauder",
+          "keystones": [
+            "Unwavering Stance"
+          ],
+          "mainSkill": "Heavy Strike",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Heavy Strike",
+      "uniques": []
+    },
+    "cluster_large.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": []
+    },
+    "cluster_nested.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": []
+    },
+    "crit_cyclone.xml": {
+      "ascendancy": null,
+      "className": "Shadow",
+      "keystones": [],
+      "level": 70,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Shadow",
+          "keystones": [],
+          "mainSkill": "Cyclone",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Cyclone",
+      "uniques": []
+    },
+    "dual_wield_cleave.xml": {
+      "ascendancy": null,
+      "className": "Duelist",
+      "keystones": [],
+      "level": 60,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Duelist",
+          "keystones": [],
+          "mainSkill": "Cleave",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Cleave",
+      "uniques": []
+    },
+    "elegant_hubris.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Elegant Hubris"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Elegant Hubris"
+      ]
+    },
+    "elementalist_fireball.xml": {
+      "ascendancy": "Elementalist",
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": "Elementalist",
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": []
+    },
+    "es_ci_arc.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [
+        "Chaos Inoculation"
+      ],
+      "level": 80,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [
+            "Chaos Inoculation"
+          ],
+          "mainSkill": "Arc",
+          "name": "Default",
+          "uniques": []
+        }
+      ],
+      "mainSkill": "Arc",
+      "uniques": []
+    },
+    "forbidden_pair.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Forbidden Flame",
+            "Forbidden Flesh"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Forbidden Flame",
+        "Forbidden Flesh"
+      ]
+    },
+    "glorious_vanity.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Glorious Vanity"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Glorious Vanity"
+      ]
+    },
+    "lethal_pride.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Lethal Pride"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Lethal Pride"
+      ]
+    },
+    "loadouts_linked.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Leveling {1}",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        },
+        {
+          "ascendancy": "Occultist",
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Discipline",
+          "name": "Endgame {2}",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Watcher's Eye"
+      ]
+    },
+    "loadouts_named.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Leveling",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        },
+        {
+          "ascendancy": "Occultist",
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Discipline",
+          "name": "Endgame",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Watcher's Eye"
+      ]
+    },
+    "loadouts_named_second_active.xml": {
+      "ascendancy": "Occultist",
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Leveling",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        },
+        {
+          "ascendancy": "Occultist",
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Discipline",
+          "name": "Endgame",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        }
+      ],
+      "mainSkill": "Discipline",
+      "uniques": [
+        "Watcher's Eye"
+      ]
+    },
+    "loadouts_old_tree.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Leveling",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Watcher's Eye"
+      ]
+    },
+    "loadouts_unmatched_saved.xml": {
+      "ascendancy": "Occultist",
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Leveling",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        }
+      ],
+      "mainSkill": "Discipline",
+      "uniques": [
+        "Watcher's Eye"
+      ]
+    },
+    "militant_faith.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Militant Faith"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Militant Faith"
+      ]
+    },
+    "unnatural_instinct.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Unnatural Instinct"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Unnatural Instinct"
+      ]
+    },
+    "watchers_eye_discipline.xml": {
+      "ascendancy": null,
+      "className": "Witch",
+      "keystones": [],
+      "level": 90,
+      "loadouts": [
+        {
+          "ascendancy": null,
+          "className": "Witch",
+          "keystones": [],
+          "mainSkill": "Fireball",
+          "name": "Default",
+          "uniques": [
+            "Watcher's Eye"
+          ]
+        }
+      ],
+      "mainSkill": "Fireball",
+      "uniques": [
+        "Watcher's Eye"
+      ]
+    }
+  }
+}

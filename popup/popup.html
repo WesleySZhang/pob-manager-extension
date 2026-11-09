@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PoB Manager</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="top">
+    <h1>PoB Manager</h1>
+    <span id="count" class="muted"></span>
+  </header>
+
+  <section class="filters">
+    <div class="row">
+      <select id="patch" title="Patch (from the build's passive tree version)"></select>
+      <select id="className" title="Class"></select>
+      <select id="ascendancy" title="Ascendancy"></select>
+    </div>
+    <div class="row">
+      <input id="search" type="search" placeholder="Search name, creator or skill…" autocomplete="off">
+      <label class="sort">Sort
+        <select id="sort">
+          <option value="newest">Newest visit</option>
+          <option value="oldest">Oldest visit</option>
+          <option value="dps">DPS</option>
+          <option value="life">Life</option>
+          <option value="level">Level</option>
+          <option value="name">Name A–Z</option>
+          <option value="visits">Most visited</option>
+        </select>
+      </label>
+    </div>
+    <details id="more">
+      <summary id="moreSummary">More filters</summary>
+      <div class="grid">
+        <label for="creator">Creator</label>
+        <select id="creator"></select>
+        <label for="dpsMin">DPS</label>
+        <span class="range"><input id="dpsMin" placeholder="min" inputmode="decimal"> – <input id="dpsMax" placeholder="max" inputmode="decimal"></span>
+        <label for="lifeMin">Life</label>
+        <span class="range"><input id="lifeMin" placeholder="min" inputmode="decimal"> – <input id="lifeMax" placeholder="max" inputmode="decimal"></span>
+        <label for="keystoneInput">Keystones</label>
+        <span class="chips" id="keystoneChips"><input id="keystoneInput" list="keystoneList" placeholder="+ add…"></span>
+        <label for="uniqueInput">Uniques</label>
+        <span class="chips" id="uniqueChips"><input id="uniqueInput" list="uniqueList" placeholder="+ add…"></span>
+      </div>
+      <datalist id="keystoneList"></datalist>
+      <datalist id="uniqueList"></datalist>
+      <div class="clear"><button id="clearAll" type="button">Clear all</button></div>
+    </details>
+  </section>
+
+  <main id="list"></main>
+
+  <script src="../data/pobdata.js"></script>
+  <script src="../data/leagues.js"></script>
+  <script src="../src/xml.js"></script>
+  <script src="../src/buildinfo.js"></script>
+  <script src="../src/filter.js"></script>
+  <script src="../src/store.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
