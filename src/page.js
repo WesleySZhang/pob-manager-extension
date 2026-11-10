@@ -1,6 +1,7 @@
 // The page box: a content script on the PoB share sites (tools/build.js content_scripts). On a share page whose build is
-// stored, a panel always sits in the bottom-right corner (no button to open it: Wesley's choice): it shows the build
-// and edits it like the popup's ✎ (name, creator, main skill, default loadout), plus favorite and delete. It lives in a shadow
+// stored, a panel sits in the bottom-right corner, open on every page load (Wesley's choice); − collapses it to a small
+// button until the page changes. It shows the build and edits it like the popup's ✎ (name, creator, main skill, default
+// loadout), plus favorite and delete. It lives in a shadow
 // root so the site's styles don't reach it, and every read and write goes through the background script (a content
 // script can't open the extension's IndexedDB). Rules shared with the popup: src/buildview.js.
 "use strict";
@@ -12,6 +13,7 @@
 
   let url = location.href;
   let found = null; // { key, record } from the background, or null
+  let collapsed = false; // collapsed to the button; every new page starts open
   let dirty = false; // the editor holds unsaved input: background updates must not overwrite it
   let confirmDelete = false;
   let note = ""; // a short status line under the editor ("Saved", an error)
@@ -29,6 +31,11 @@
       --focus: #5b8def; color-scheme: dark; }
     * { box-sizing: border-box; }
     .wrap { font: 13px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text); }
+    .wrap.collapsed .panel, .wrap:not(.collapsed) .pill { display: none; }
+    .pill { background: var(--panel); color: var(--text); border: 1px solid var(--line-strong); border-left: 3px solid var(--accent);
+      border-radius: 4px; padding: 5px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.5); cursor: pointer; font: inherit; }
+    .pill:hover { border-color: var(--muted); border-left-color: var(--accent); }
+    .pill .star { color: var(--accent); margin-left: 4px; }
     .panel { width: 360px; max-height: calc(100vh - 32px); overflow: auto; background: var(--bg); border: 1px solid var(--line-strong);
       border-left: 3px solid var(--accent); border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.6); padding: 10px 12px; }
     .head { display: flex; align-items: center; gap: 6px; }
@@ -93,13 +100,22 @@
     render();
   }
 
+  // Collapsing only hides the panel (CSS on .wrap), so unsaved typing is still there when it opens again.
+  function setCollapsed(v) {
+    collapsed = v;
+    wrap.classList.toggle("collapsed", v);
+  }
+
   // ---------- drawing ----------
   function render() {
     const b = found && found.record;
     if (!b) { host.remove(); return; } // not a share page, not a build, or not stored yet
     if (!host.isConnected) document.documentElement.append(host);
+    setCollapsed(collapsed);
     if (dirty && wrap.querySelector(".editor")) return; // keep what is being typed
-    wrap.replaceChildren(panel(b));
+    const pill = el("button", { class: "pill", type: "button", title: "Show the PoB Manager panel", onclick: () => setCollapsed(false) },
+      ["PoB Manager", b.favorite === true ? el("span", { class: "star", text: "★" }) : null]);
+    wrap.replaceChildren(panel(b), pill);
   }
 
   function panel(b) {
@@ -112,6 +128,7 @@
         title: fav ? "Remove from favorites" : "Add to favorites",
         onclick: () => send({ type: "edit", key: b.key, changes: { favorite: !fav } }).then(refresh) }),
       el("span", { class: "name", text: F.displayName(b), title: F.displayName(b) }),
+      el("button", { class: "icon collapse", type: "button", text: "−", title: "Collapse", onclick: () => setCollapsed(true) }),
     ]);
     const sub = el("div", { class: "sub", text: [b.creator ? "by " + b.creator : null, b.label,
       b.visits + " visit" + (b.visits === 1 ? "" : "s"), views.length > 1 && view ? "loadout " + view.name + " (" + views.length + " loadouts)" : null]
@@ -191,6 +208,7 @@
   setInterval(function () {
     if (location.href === url) return;
     url = location.href;
+    collapsed = false;
     dirty = false;
     confirmDelete = false;
     note = "";

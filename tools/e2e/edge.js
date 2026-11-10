@@ -265,8 +265,8 @@ function check(cond, msg) {
     await page.bringToFront();
     await page.goto(boxLink, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
     await waitBox((root) => root.querySelector(".panel .editor"));
-    check(await inBox((root) => !root.querySelector(".pill") && !Array.from(root.querySelectorAll("button")).some((b) => b.textContent === "×")),
-      "a stored build's share page shows the panel at once: no button to open it, none to hide it");
+    const shown = (root) => ({ panel: getComputedStyle(root.querySelector(".panel")).display !== "none", pill: getComputedStyle(root.querySelector(".pill")).display !== "none" });
+    check(JSON.stringify(await inBox(shown)) === '{"panel":true,"pill":false}', "a stored build's share page shows the panel open, with no click");
     check(await page.evaluate(() => getComputedStyle(document.getElementById("pob-manager-box")).position === "fixed"), "the box is fixed to the corner, outside the site's layout");
     const boxName = await inBox((root) => root.querySelector(".panel .name").textContent);
     check(boxName === await popupName(), "the box names the build as the popup does (" + boxName + ")");
@@ -310,10 +310,20 @@ function check(cond, msg) {
     const shot3 = shot.replace(/\.png$/, "-pagebox.png");
     await page.screenshot({ path: shot3 });
     console.log("screenshot: " + path.relative(root, shot3));
-    // A new visit shows the panel again, with no click.
+    // − collapses the panel to the button, keeping unsaved typing; the button opens it again.
+    await inBox((root) => { const i = root.querySelector(".name-in"); i.value = "typed before collapsing"; i.dispatchEvent(new Event("input", { bubbles: true })); });
+    await inBox((root) => root.querySelector(".head button.collapse").click());
+    check(JSON.stringify(await inBox(shown)) === '{"panel":false,"pill":true}', "− collapses the panel to the PoB Manager button");
+    check(await inBox((root) => root.querySelector(".pill").textContent.startsWith("PoB Manager")), "the collapsed button reads PoB Manager");
+    await inBox((root) => root.querySelector(".pill").click());
+    check(JSON.stringify(await inBox(shown)) === '{"panel":true,"pill":false}', "the button opens the panel again");
+    check(await inBox((root) => root.querySelector(".name-in").value === "typed before collapsing"), "unsaved typing survives collapsing");
+    await inBox((root) => Array.from(root.querySelectorAll(".editor button")).find((b) => b.textContent === "Revert").click());
+    // Collapsed is not remembered: the next page load opens it.
+    await inBox((root) => root.querySelector(".head button.collapse").click());
     await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
     await waitBox((root) => root.querySelector(".panel .editor"));
-    check(true, "the panel shows again after a reload");
+    check(JSON.stringify(await inBox(shown)) === '{"panel":true,"pill":false}', "after collapsing, a reload shows the panel open again");
     // Pages that aren't stored builds get no box.
     for (const u of notBuilds) {
       await page.goto(u, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
