@@ -55,11 +55,11 @@ function check(cond, msg) {
     for (const r of rows) console.log("     row: " + r);
     check(rows.length === builds.length, builds.length + " builds recorded, the ladder and pobb.in/about not");
     check(rows.every((r) => !/Could not|no build|HTTP/.test(r)), "every build read without error");
-    // Each row's third line holds the saved DPS, Life, ES and EHP (Wesley, Nov 10, 2026); the second line no longer does.
+    // Each row's third line holds the saved DPS and EHP only (Wesley, Nov 10, 2026); no Life or ES on the row.
     const lines = await popup.$$eval(".build", (els) => els.map((e) => Array.from(e.querySelectorAll(":scope > .line")).map((l) => l.innerText.replace(/\s+/g, " "))));
     console.log("     stat lines: " + lines.map((l) => l[2]).join(" | "));
-    check(lines.every((l) => l.length === 3 && !/DPS|Life/.test(l[1]) && /^\S+ DPS · \S+ Life (· \S+ ES )?· \S+ EHP$/.test(l[2]) && !/— EHP/.test(l[2])),
-      "every row has three lines, the third with DPS, Life, ES when there is some, and the build's EHP");
+    check(lines.every((l) => l.length === 3 && !/DPS|Life/.test(l[1]) && /^\S+ DPS · \S+ EHP$/.test(l[2]) && !/— EHP/.test(l[2])),
+      "every row has three lines, the third with only the build's DPS and EHP");
     const visits = await popup.evaluate(async () => {
       const s = await globalThis.PobStore.open(indexedDB);
       const all = await s.allBuilds();
@@ -164,8 +164,8 @@ function check(cond, msg) {
       check(/KEYSTONES/.test(row) && !/UNIQUES|SKILLS/.test(row), "the expanded row lists keystones but not uniques or skills");
       // The saved stats (Midgame: PoB's <PlayerStat>, Life 4,089 as pobb.in shows) apply whichever loadout is the default.
       const lifeShown = await popup.$eval('.build[data-link="https://pobb.in/2FlZU8rRPp3F"] .details .stat[data-stat="Life"] .v', (v) => v.textContent).catch(() => null);
-      check(/· 4\.09k Life/.test(row) && !/— Life/.test(row) && lifeShown === "4,089",
-        "with Endgame Red Maps as default, the row and panel show the saved stats (Life " + lifeShown + ")");
+      check(/· 91\.2k EHP/.test(row) && !/— EHP/.test(row) && lifeShown === "4,089",
+        "with Endgame Red Maps as default, the row and panel show the saved stats (EHP on the row, Life " + lifeShown + " in the panel)");
     }
     // Clicking a row expands it (no new tab) to PoB's left-panel stats; "Open link" opens the share page.
     const tabsBefore = (await browser.pages()).length;
@@ -302,8 +302,8 @@ function check(cond, msg) {
     check(boxName === await popupName(), "the box names the build as the popup does (" + boxName + ")");
     const boxMeta = await inBox((root) => Array.from(root.querySelectorAll(".panel .meta")).map((m) => m.innerText.replace(/\s+/g, " ")));
     console.log("     box: " + boxMeta.join(" / "));
-    check(boxMeta.length === 2 && /Lv \d+/.test(boxMeta[0]) && !/DPS|Life/.test(boxMeta[0]) && /DPS · .* Life .*· .* EHP$/.test(boxMeta[1]),
-      "the box shows the summary, then the saved DPS, Life and EHP on their own line");
+    check(boxMeta.length === 2 && /Lv \d+/.test(boxMeta[0]) && !/DPS|Life/.test(boxMeta[0]) && /^\S+ DPS · \S+ EHP$/.test(boxMeta[1]),
+      "the box shows the summary, then the saved DPS and EHP on their own line");
     if (boxLink === "https://pobb.in/2FlZU8rRPp3F") {
       check(await inBox((root) => root.querySelector(".default-loadout").value === "Endgame Red Maps" && root.querySelector(".main-skill") !== null),
         "the box's editor shows the default loadout set in the popup, and the main skill choice");

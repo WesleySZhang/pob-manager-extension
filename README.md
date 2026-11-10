@@ -39,7 +39,7 @@ site it came from.
   in any socket group; supports don't count). Sorts include energy shield and newest added.
 - **Search, filters and sorting look only at each build's default loadout** (the one set by hand, else the saved one).
   A build whose other loadouts would match is not shown.
-- Each build is a three-line row (name; class, level, main skill and patch; the saved DPS, Life, ES and EHP) with **Open link** and **Open in PoB** (`pob://` link) buttons. **Click the row to
+- Each build is a three-line row (name; class, level, main skill and patch; the saved DPS and EHP) with **Open link** and **Open in PoB** (`pob://` link) buttons. **Click the row to
   expand** it (selecting text in it doesn't collapse it): Path of Building's left panel for the build as saved, in three
   columns, with PoB's numbers: DPS lines, max hits (phys, fire, cold, lightning, chaos), EHP, life, mana, ES and regen,
   armour, evasion, block, spell block, spell suppression, resistances with over-cap, attributes, movement speed and
@@ -62,7 +62,7 @@ site it came from.
 
 On a share page whose build is stored, a PoB Manager panel opens in the bottom-right corner on every page load (on all
 8 sites; it floats over the page, so it doesn't depend on any site's layout). It has the build's name, creator,
-summary (class, level, main skill, patch, then saved DPS/Life/ES/EHP) and the same editor as ✎: name, creator, main skill and
+summary (class, level, main skill, patch, then saved DPS and EHP) and the same editor as ✎: name, creator, main skill and
 default loadout, plus ☆ favorite, **Open in PoB** and **Delete** (two clicks). Edits show in the popup at once, and edits
 made in the popup show in an open page's panel. **−** collapses it to a small **PoB Manager** button until you leave the
 page (unsaved typing is kept); click the button to open it again. Pages that aren't a stored build (the ladder, a paste that holds no

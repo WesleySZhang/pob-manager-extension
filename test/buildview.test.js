@@ -29,20 +29,18 @@ test("summaryParts: class and level, main skill, patch; the stats are on their o
   ]);
 });
 
-// Wesley, Nov 10, 2026: DPS, Life and ES move to a third row line, with EHP added (PoB's saved TotalEHP PlayerStat).
-test("statParts: the saved DPS, Life, ES and EHP", () => {
+// Wesley, Nov 10, 2026: the row's third line holds the saved DPS and EHP (PoB's saved TotalEHP PlayerStat) only; Life
+// and ES are not shown on the row.
+test("statParts: the saved DPS and EHP only, not Life or ES", () => {
   const b = build({}, { es: 8070, stats: { TotalEHP: 91234 } });
   assert.deepEqual(V.statParts(b), [
     { text: "4.2M DPS", title: "As exported: CombinedDPS", kind: "dps" },
-    { text: "· 6.1k Life", title: "As exported" },
-    { text: "· 8.07k ES", title: "As exported" },
     { text: "· 91.2k EHP", title: "Effective hit pool, as exported (TotalEHP)" },
   ]);
 });
 
-test("statParts: no ES under 1; missing stats show —; nothing for a build not read", () => {
-  assert.deepEqual(texts(V.statParts(build({}, { es: 0.5, stats: { TotalEHP: 5000 } }))), ["4.2M DPS", "· 6.1k Life", "· 5k EHP"]);
-  assert.deepEqual(texts(V.statParts(build({}, { dps: null, life: null }))), ["— DPS", "· — Life", "· — EHP"], "no stats saved");
+test("statParts: missing stats show —; nothing for a build not read", () => {
+  assert.deepEqual(texts(V.statParts(build({}, { dps: null, life: null }))), ["— DPS", "· — EHP"], "no stats saved");
   assert.equal(V.statParts(build({ status: "pending", info: undefined })), null);
   assert.equal(V.statParts(build({ status: "error" })), null);
   assert.equal(V.statParts(null), null);
@@ -60,7 +58,7 @@ test("summaryParts and statParts: the saved stats whatever loadout is the defaul
   const parts = V.summaryParts(b, view(b));
   assert.equal(view(b).name, "Endgame");
   assert.deepEqual(texts(parts), ["Slayer · Lv 90", "· Blood Rage", "3.29"]);
-  assert.deepEqual(texts(V.statParts(b)), ["4.2M DPS", "· 6.1k Life", "· — EHP"]);
+  assert.deepEqual(texts(V.statParts(b)), ["4.2M DPS", "· — EHP"]);
   assert.equal(V.statParts(b)[0].title, "As exported: CombinedDPS (loadout Leveling)");
 });
 

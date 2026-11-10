@@ -39,7 +39,7 @@
   }
 
   /**
-   * The row's third line (Wesley, Nov 10, 2026): the saved DPS, Life, ES (when 1 or more) and EHP (PoB's TotalEHP),
+   * The row's third line (Wesley, Nov 10, 2026): the saved DPS and EHP (PoB's TotalEHP) only, no Life or ES,
    * whichever loadout is the default; null when the build isn't read.
    */
   function statParts(build) {
@@ -48,8 +48,6 @@
     const from = savedFrom(F.viewsOf(build));
     const ehp = i.stats && i.stats.TotalEHP !== undefined ? i.stats.TotalEHP : null;
     const parts = [{ text: F.formatAmount(i.dps) + " DPS", title: "As exported: " + (i.dpsStat || "no DPS stat") + from, kind: "dps" }];
-    parts.push({ text: "· " + F.formatAmount(i.life) + " Life", title: "As exported" + from });
-    if (i.es >= 1) parts.push({ text: "· " + F.formatAmount(i.es) + " ES", title: "As exported" + from });
     parts.push({ text: "· " + F.formatAmount(ehp) + " EHP", title: "Effective hit pool, as exported (TotalEHP)" + from });
     return parts;
   }
