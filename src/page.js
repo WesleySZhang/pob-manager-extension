@@ -140,7 +140,8 @@
       parts.push(el("div", { class: "meta" }, [el("span", { class: "error", text: b.error || "Could not read this build" })]));
     } else {
       const KIND = { skill: "skill", manual: "skill manual", tag: "tag", dps: "dps" };
-      parts.push(el("div", { class: "meta" }, V.summaryParts(b, view).map((p) => el("span", { class: KIND[p.kind] || "", text: p.text, title: p.title || "" }))));
+      const line = (ps, cls) => el("div", { class: cls }, ps.map((p) => el("span", { class: KIND[p.kind] || "", text: p.text, title: p.title || "" })));
+      parts.push(line(V.summaryParts(b, view), "meta"), line(V.statParts(b), "meta stats"));
     }
     parts.push(editor(b, vi, views));
     parts.push(el("div", { class: "foot" }, [

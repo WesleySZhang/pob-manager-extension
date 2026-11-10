@@ -24,8 +24,10 @@
         <select id="sort">
           <option value="newest">Newest visit</option>
           <option value="oldest">Oldest visit</option>
+          <option value="added">Newest added</option>
           <option value="dps">DPS</option>
           <option value="life">Life</option>
+          <option value="es">Energy shield</option>
           <option value="level">Level</option>
           <option value="name">Name A–Z</option>
           <option value="visits">Most visited</option>
@@ -37,10 +39,18 @@
       <div class="grid">
         <label for="creator">Creator</label>
         <select id="creator"></select>
+        <label for="added">When added</label>
+        <select id="added" title="When the build was first recorded"></select>
         <label for="dpsMin">DPS</label>
         <span class="range"><input id="dpsMin" placeholder="min" inputmode="decimal"> – <input id="dpsMax" placeholder="max" inputmode="decimal"></span>
         <label for="lifeMin">Life</label>
         <span class="range"><input id="lifeMin" placeholder="min" inputmode="decimal"> – <input id="lifeMax" placeholder="max" inputmode="decimal"></span>
+        <label for="esMin">Energy shield</label>
+        <span class="range"><input id="esMin" placeholder="min" inputmode="decimal"> – <input id="esMax" placeholder="max" inputmode="decimal"></span>
+        <label for="levelMin">Level</label>
+        <span class="range"><input id="levelMin" placeholder="min" inputmode="numeric"> – <input id="levelMax" placeholder="max" inputmode="numeric"></span>
+        <label for="skillInput">Skills</label>
+        <span class="chips" id="skillChips"><input id="skillInput" list="skillList" placeholder="+ add…" title="Builds using every skill listed, in any socket group"></span>
         <label for="keystoneInput">Keystones</label>
         <span class="chips" id="keystoneChips"><input id="keystoneInput" list="keystoneList" placeholder="+ add…"></span>
         <label for="uniqueInput">Uniques</label>
@@ -48,6 +58,7 @@
       </div>
       <datalist id="keystoneList"></datalist>
       <datalist id="uniqueList"></datalist>
+      <datalist id="skillList"></datalist>
       <div class="clear"><button id="clearAll" type="button">Clear all</button></div>
     </details>
   </section>

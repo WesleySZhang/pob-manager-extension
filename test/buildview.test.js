@@ -20,31 +20,48 @@ const loadout = (name, active, o) => Object.assign({ name: name, active: active,
 const view = (b) => F.viewsOf(b)[F.defaultViewIndex(b)];
 const texts = (parts) => parts.map((p) => p.text);
 
-test("summaryParts: class and level, main skill, patch, then the saved DPS, Life and ES", () => {
+test("summaryParts: class and level, main skill, patch; the stats are on their own line (statParts)", () => {
   const b = build({}, { es: 8070 });
   assert.deepEqual(V.summaryParts(b, view(b)), [
     { text: "Slayer · Lv 90" },
     { text: "· Cyclone", title: "PoB's main skill", kind: "skill" },
     { text: "3.29", title: "Patch from the passive tree: 3.29", kind: "tag" },
-    { text: "· 4.2M DPS", title: "As exported: CombinedDPS", kind: "dps" },
-    { text: "· 6.1k Life", title: "As exported" },
-    { text: "· 8.07k ES", title: "As exported" },
   ]);
 });
 
-test("summaryParts: no ES under 1, tags for Ruthless and alternate trees, a hand-set skill marked manual", () => {
+// Wesley, Nov 10, 2026: DPS, Life and ES move to a third row line, with EHP added (PoB's saved TotalEHP PlayerStat).
+test("statParts: the saved DPS, Life, ES and EHP", () => {
+  const b = build({}, { es: 8070, stats: { TotalEHP: 91234 } });
+  assert.deepEqual(V.statParts(b), [
+    { text: "4.2M DPS", title: "As exported: CombinedDPS", kind: "dps" },
+    { text: "· 6.1k Life", title: "As exported" },
+    { text: "· 8.07k ES", title: "As exported" },
+    { text: "· 91.2k EHP", title: "Effective hit pool, as exported (TotalEHP)" },
+  ]);
+});
+
+test("statParts: no ES under 1; missing stats show —; nothing for a build not read", () => {
+  assert.deepEqual(texts(V.statParts(build({}, { es: 0.5, stats: { TotalEHP: 5000 } }))), ["4.2M DPS", "· 6.1k Life", "· 5k EHP"]);
+  assert.deepEqual(texts(V.statParts(build({}, { dps: null, life: null }))), ["— DPS", "· — Life", "· — EHP"], "no stats saved");
+  assert.equal(V.statParts(build({ status: "pending", info: undefined })), null);
+  assert.equal(V.statParts(build({ status: "error" })), null);
+  assert.equal(V.statParts(null), null);
+});
+
+test("summaryParts: tags for Ruthless and alternate trees, a hand-set skill marked manual", () => {
   const b = build({ mainSkills: { "As saved": "Blood Rage" } }, { ruthless: true, alternate: true, es: 0.5 });
   const parts = V.summaryParts(b, view(b));
-  assert.deepEqual(texts(parts), ["Slayer · Lv 90", "· Blood Rage", "Ruthless", "Alternate", "3.29", "· 4.2M DPS", "· 6.1k Life"]);
+  assert.deepEqual(texts(parts), ["Slayer · Lv 90", "· Blood Rage", "Ruthless", "Alternate", "3.29"]);
   assert.deepEqual(parts[1], { text: "· Blood Rage", title: "Main skill set by you · PoB's main skill: Cyclone", kind: "manual" });
 });
 
-test("summaryParts: the saved stats whatever loadout is the default, naming the saved loadout", () => {
+test("summaryParts and statParts: the saved stats whatever loadout is the default, naming the saved loadout", () => {
   const b = build({ defaultView: "Endgame" }, { loadouts: [loadout("Leveling", true), loadout("Endgame", false, { mainSkill: "Blood Rage" })] });
   const parts = V.summaryParts(b, view(b));
   assert.equal(view(b).name, "Endgame");
-  assert.deepEqual(texts(parts), ["Slayer · Lv 90", "· Blood Rage", "3.29", "· 4.2M DPS", "· 6.1k Life"]);
-  assert.equal(parts[3].title, "As exported: CombinedDPS (loadout Leveling)");
+  assert.deepEqual(texts(parts), ["Slayer · Lv 90", "· Blood Rage", "3.29"]);
+  assert.deepEqual(texts(V.statParts(b)), ["4.2M DPS", "· 6.1k Life", "· — EHP"]);
+  assert.equal(V.statParts(b)[0].title, "As exported: CombinedDPS (loadout Leveling)");
 });
 
 test("summaryParts: nothing for a build not read yet or that failed", () => {

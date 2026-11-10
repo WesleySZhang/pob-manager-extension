@@ -215,3 +215,67 @@ test("favorites only: starred builds, including a starred one still being read; 
   assert.deepEqual(keys(F.apply(list, { favorites: false })), ["f1", "n1", "f2", "x1"]);
   assert.equal(F.EMPTY.favorites, false, "Clear all turns it off");
 });
+
+// ---------- energy shield, level, skills and when added (Wesley, Nov 10, 2026) ----------
+
+const more = [
+  build("ci", { lastSeen: 3, firstSeen: 3 }, { level: 95, es: 9800, life: 1, activeSkills: ["Arc", "Herald of Thunder", "Flame Dash"], skills: ["Arc", "Spell Echo Support"] }),
+  build("hy", { lastSeen: 2, firstSeen: 2 }, { level: 92, es: 2400, life: 4500, activeSkills: ["Arc", "Molten Shell"] }),
+  build("lo", { lastSeen: 1, firstSeen: 1 }, { level: 70, es: null, life: 3000, activeSkills: ["Cyclone"] }),
+];
+
+test("energy shield range uses the saved ES; a build without it is left out", () => {
+  assert.deepEqual(keys(F.apply(more, { esMin: "5k" })), ["ci"]);
+  assert.deepEqual(keys(F.apply(more, { esMax: "3000" })), ["hy"], "no saved ES: left out of a range");
+  assert.deepEqual(keys(F.apply(more, { esMin: "lots" })), ["ci", "hy"], "bad input is ignored, but a range is set so ES must exist");
+});
+
+test("level range is inclusive at both ends", () => {
+  assert.deepEqual(keys(F.apply(more, { levelMin: "92" })), ["ci", "hy"]);
+  assert.deepEqual(keys(F.apply(more, { levelMin: "90", levelMax: "92" })), ["hy"]);
+  assert.deepEqual(keys(F.apply(more, { levelMax: "70" })), ["lo"]);
+  assert.deepEqual(keys(F.apply(more, { levelMin: "93", lifeMin: "2k" })), [], "combined with another range: both must hold");
+});
+
+test("skills: a build must use every chip as an active skill in any socket group; supports don't count", () => {
+  assert.deepEqual(keys(F.apply(more, { skills: ["Arc"] })), ["ci", "hy"]);
+  assert.deepEqual(keys(F.apply(more, { skills: ["Arc", "Molten Shell"] })), ["hy"]);
+  assert.deepEqual(keys(F.apply(more, { skills: ["Flame Dash"] })), ["ci"], "not the main skill, still matches");
+  assert.deepEqual(keys(F.apply(more, { skills: ["Spell Echo Support"] })), [], "a support gem is no active skill");
+  assert.deepEqual(F.filterOptions(more, leagues).skills, ["Arc", "Cyclone", "Flame Dash", "Herald of Thunder", "Molten Shell"]);
+});
+
+test("skills use the default loadout only", () => {
+  const L = build("L2", {}, { activeSkills: ["Fireball"], loadouts: [
+    { name: "Leveling", active: true, activeSkills: ["Fireball"], keystones: [], uniques: [] },
+    { name: "Endgame", active: false, activeSkills: ["Discipline"], keystones: [], uniques: [] }] });
+  assert.deepEqual(keys(F.apply([L], { skills: ["Discipline"] })), []);
+  assert.deepEqual(keys(F.apply([Object.assign({}, L, { defaultView: "Endgame" })], { skills: ["Discipline"] })), ["L2"]);
+  assert.deepEqual(F.filterOptions([Object.assign({}, L, { defaultView: "Endgame" })], leagues).skills, ["Discipline"]);
+});
+
+test("when added: by the first visit, counted back from now; builds still being read are kept", () => {
+  const DAY = 86400000, now = 100 * DAY;
+  const list = [
+    build("new", { firstSeen: now - 2 * 3600000, lastSeen: now }, {}),
+    build("week", { firstSeen: now - 6 * DAY, lastSeen: now - 1 }, {}),
+    build("old", { firstSeen: now - 60 * DAY, lastSeen: now - 2 }, {}),
+    { key: "p", link: "https://pobb.in/p", label: "pobb.in", status: "pending", firstSeen: now - 1000, lastSeen: now - 3, visits: 1 },
+  ];
+  assert.deepEqual(keys(F.apply(list, { added: "1" }, now)), ["new", "p"]);
+  assert.deepEqual(keys(F.apply(list, { added: "7" }, now)), ["new", "week", "p"]);
+  assert.deepEqual(keys(F.apply(list, { added: "30" }, now)), ["new", "week", "p"]);
+  assert.deepEqual(keys(F.apply(list, { added: "90" }, now)), ["new", "week", "old", "p"]);
+  assert.deepEqual(keys(F.apply(list, { added: "" }, now)), ["new", "week", "old", "p"], "any time");
+  assert.deepEqual(keys(F.apply(list, { added: "bogus" }, now)), ["new", "week", "old", "p"], "an unknown choice filters nothing");
+  assert.deepEqual(keys(F.apply([build("x", { firstSeen: now - 7 * DAY }, {})], { added: "7" }, now)), ["x"], "exactly 7 days ago is within 7 days");
+  assert.deepEqual(keys(F.apply([build("nofs", {}, {})], { added: "90" }, now)), [], "no first visit known: left out");
+  assert.deepEqual(Object.keys(F.ADDED), ["1", "7", "30", "90"], "the drop-down's order");
+});
+
+test("sort by newest added uses the first visit, not the last", () => {
+  const list = [build("a1", { firstSeen: 1, lastSeen: 9 }, {}), build("a2", { firstSeen: 5, lastSeen: 2 }, {})];
+  assert.deepEqual(keys(F.apply(list, { sort: "added" })), ["a2", "a1"]);
+  assert.deepEqual(keys(F.apply(list, { sort: "newest" })), ["a1", "a2"]);
+  assert.deepEqual(keys(F.apply(more, { sort: "es" })), ["ci", "hy", "lo"], "ES sort, no ES last");
+});

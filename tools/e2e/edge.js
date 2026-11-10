@@ -55,6 +55,11 @@ function check(cond, msg) {
     for (const r of rows) console.log("     row: " + r);
     check(rows.length === builds.length, builds.length + " builds recorded, the ladder and pobb.in/about not");
     check(rows.every((r) => !/Could not|no build|HTTP/.test(r)), "every build read without error");
+    // Each row's third line holds the saved DPS, Life, ES and EHP (Wesley, Nov 10, 2026); the second line no longer does.
+    const lines = await popup.$$eval(".build", (els) => els.map((e) => Array.from(e.querySelectorAll(":scope > .line")).map((l) => l.innerText.replace(/\s+/g, " "))));
+    console.log("     stat lines: " + lines.map((l) => l[2]).join(" | "));
+    check(lines.every((l) => l.length === 3 && !/DPS|Life/.test(l[1]) && /^\S+ DPS · \S+ Life (· \S+ ES )?· \S+ EHP$/.test(l[2]) && !/— EHP/.test(l[2])),
+      "every row has three lines, the third with DPS, Life, ES when there is some, and the build's EHP");
     const visits = await popup.evaluate(async () => {
       const s = await globalThis.PobStore.open(indexedDB);
       const all = await s.allBuilds();
@@ -69,6 +74,31 @@ function check(cond, msg) {
     await popup.waitForFunction(() => document.querySelectorAll(".build").length === 1);
     check((await popup.$eval(".build .name", (e) => e.textContent)) === "Winter Orb Occultist", "skill search finds the Winter Orb build by its generated name");
     await popup.$eval("#search", (e) => { e.value = ""; e.dispatchEvent(new Event("input")); });
+
+    // More filters (Wesley, Nov 10, 2026): skills, energy shield, level, when added.
+    const rowCount = () => popup.$$eval(".build", (els) => els.length);
+    const setVal = (sel, v, ev) => popup.$eval(sel, (e, v, ev) => { e.value = v; e.dispatchEvent(new Event(ev, { bubbles: true })); }, v, ev);
+    const allRows = await rowCount();
+    check((await popup.$$eval("#skillList option", (os) => os.map((o) => o.value))).includes("Winter Orb"), "the Skills type-ahead lists the builds' active skills");
+    await setVal("#skillInput", "winter orb", "change");
+    await popup.waitForFunction(() => document.querySelectorAll(".build").length === 1 && document.querySelectorAll("#skillChips .chip").length === 1, { timeout: 10000, polling: 200 });
+    check((await popup.$eval(".build .name", (e) => e.textContent)) === "Winter Orb Occultist", "a Winter Orb skill chip keeps only the build using it");
+    await popup.$eval("#skillChips .chip button", (b) => b.click());
+    await popup.waitForFunction((n) => document.querySelectorAll(".build").length === n, { timeout: 10000, polling: 200 }, allRows);
+    await setVal("#levelMax", "1", "input");
+    await popup.waitForFunction(() => document.querySelectorAll(".build").length === 0, { timeout: 10000, polling: 200 });
+    check(/1 active/.test(await popup.$eval("#moreSummary", (e) => e.textContent)), "a level range of at most 1 matches no build and counts as an active filter");
+    await setVal("#levelMax", "", "input");
+    await setVal("#esMin", "1b", "input");
+    await popup.waitForFunction(() => document.querySelectorAll(".build").length === 0, { timeout: 10000, polling: 200 });
+    check(true, "an energy shield minimum of 1b matches no build");
+    await setVal("#esMin", "", "input");
+    check((await popup.$$eval("#added option", (os) => os.map((o) => o.textContent))).join("|") === "Any time|Last 24 hours|Last 7 days|Last 30 days|Last 90 days",
+      "the When added drop-down's choices");
+    await setVal("#added", "1", "change");
+    await popup.waitForFunction((n) => document.querySelectorAll(".build").length === n, { timeout: 10000, polling: 200 }, allRows);
+    check(true, "every build was added in the last 24 hours (this run's fresh profile)");
+    await setVal("#added", "", "change");
 
     // Patch drop-down lists the patches with their league.
     const patches = await popup.$$eval("#patch option", (os) => os.map((o) => o.textContent));
@@ -270,9 +300,10 @@ function check(cond, msg) {
     check(await page.evaluate(() => getComputedStyle(document.getElementById("pob-manager-box")).position === "fixed"), "the box is fixed to the corner, outside the site's layout");
     const boxName = await inBox((root) => root.querySelector(".panel .name").textContent);
     check(boxName === await popupName(), "the box names the build as the popup does (" + boxName + ")");
-    const boxMeta = await inBox((root) => root.querySelector(".panel .meta").innerText.replace(/\s+/g, " "));
-    console.log("     box: " + boxMeta);
-    check(/DPS/.test(boxMeta) && /Life/.test(boxMeta), "the box shows the build's summary with its saved DPS and Life");
+    const boxMeta = await inBox((root) => Array.from(root.querySelectorAll(".panel .meta")).map((m) => m.innerText.replace(/\s+/g, " ")));
+    console.log("     box: " + boxMeta.join(" / "));
+    check(boxMeta.length === 2 && /Lv \d+/.test(boxMeta[0]) && !/DPS|Life/.test(boxMeta[0]) && /DPS · .* Life .*· .* EHP$/.test(boxMeta[1]),
+      "the box shows the summary, then the saved DPS, Life and EHP on their own line");
     if (boxLink === "https://pobb.in/2FlZU8rRPp3F") {
       check(await inBox((root) => root.querySelector(".default-loadout").value === "Endgame Red Maps" && root.querySelector(".main-skill") !== null),
         "the box's editor shows the default loadout set in the popup, and the main skill choice");

@@ -73,7 +73,7 @@
 
   /** Values for the drop-downs and type-aheads, from each build's default view (the one filters look at). */
   function filterOptions(builds, leagues) {
-    const patches = new Set(), classes = new Set(), creators = new Set(), keystones = new Set(), uniques = new Set();
+    const patches = new Set(), classes = new Set(), creators = new Set(), keystones = new Set(), uniques = new Set(), skills = new Set();
     const ascByClass = {};
     for (const b of builds) {
       if (b.creator && b.creator.trim()) creators.add(b.creator.trim());
@@ -88,6 +88,7 @@
         }
         for (const k of i.keystones || []) keystones.add(k);
         for (const u of i.uniques || []) uniques.add(u);
+        for (const s of i.activeSkills || []) skills.add(s);
       }
     }
     const sorted = (s) => Array.from(s).sort((a, b) => a.localeCompare(b));
@@ -101,11 +102,16 @@
       creators: sorted(creators),
       keystones: sorted(keystones),
       uniques: sorted(uniques),
+      skills: sorted(skills),
     };
   }
 
-  const EMPTY = { patch: "", className: "", ascendancy: "", search: "", creator: "", keystones: [], uniques: [],
-    dpsMin: "", dpsMax: "", lifeMin: "", lifeMax: "", favorites: false, sort: "newest" };
+  const EMPTY = { patch: "", className: "", ascendancy: "", search: "", creator: "", keystones: [], uniques: [], skills: [],
+    dpsMin: "", dpsMax: "", lifeMin: "", lifeMax: "", esMin: "", esMax: "", levelMin: "", levelMax: "", added: "", favorites: false, sort: "newest" };
+  // When added: within this many days of now, by firstSeen (the first visit). "" is any time.
+  const ADDED = { "1": "Last 24 hours", "7": "Last 7 days", "30": "Last 30 days", "90": "Last 90 days" };
+  const DAY = 86400000;
+  const RANGES = ["dpsMin", "dpsMax", "lifeMin", "lifeMax", "esMin", "esMax", "levelMin", "levelMax"];
 
   function inRange(value, minText, maxText) {
     const min = parseAmount(minText), max = parseAmount(maxText);
@@ -123,11 +129,16 @@
     if (f.ascendancy && i.ascendancy !== f.ascendancy) return false;
     for (const k of f.keystones || []) if ((i.keystones || []).indexOf(k) === -1) return false;
     for (const u of f.uniques || []) if ((i.uniques || []).indexOf(u) === -1) return false;
-    const ranged = (f.dpsMin || f.dpsMax || f.lifeMin || f.lifeMax);
-    if (ranged) {
+    // Skills: every chip must be an active skill of the loadout (any socket group, not only the main skill; Wesley,
+    // Nov 10, 2026). activeSkills holds the skills of enabled gems and of items (buildinfo readState), not supports.
+    for (const s of f.skills || []) if ((i.activeSkills || []).indexOf(s) === -1) return false;
+    if (RANGES.some((k) => f[k])) {
       // The build's stats are the ones PoB saved (for the saved loadout; PoB saves no others). They are the build's
-      // numbers whichever loadout is the default (Wesley, Nov 8, 2026: no calculating, use the saved numbers).
-      if (!inRange(build.info.dps, f.dpsMin, f.dpsMax) || !inRange(build.info.life, f.lifeMin, f.lifeMax)) return false;
+      // numbers whichever loadout is the default (Wesley, Nov 8, 2026: no calculating, use the saved numbers). The
+      // character level is the build's own (PoB's <Build level>), the same in every loadout.
+      const s = build.info;
+      if (!inRange(s.dps, f.dpsMin, f.dpsMax) || !inRange(s.life, f.lifeMin, f.lifeMax) ||
+        !inRange(s.es, f.esMin, f.esMax) || !inRange(s.level, f.levelMin, f.levelMax)) return false;
     }
     const q = (f.search || "").trim().toLowerCase();
     if (q) {
@@ -141,9 +152,11 @@
   const savedStat = (k) => (b) => (b.info ? b.info[k] : null);
   const SORTS = {
     newest: { key: (b) => b.lastSeen, desc: true },
+    added: { key: (b) => b.firstSeen, desc: true },
     oldest: { key: (b) => b.lastSeen, desc: false },
     dps: { key: savedStat("dps"), desc: true },
     life: { key: savedStat("life"), desc: true },
+    es: { key: savedStat("es"), desc: true },
     level: { key: (b) => (b.info ? b.info.level : null), desc: true },
     name: { key: (b) => displayName(b).toLowerCase(), desc: false },
     visits: { key: (b) => b.visits, desc: true },
@@ -153,16 +166,18 @@
    * @returns {{build, view: number}[]} the builds that match, sorted, each with its view to show. Only the default
    * view (the default loadout set by hand, else the saved state) is searched and filtered: a build whose default
    * doesn't match is left out, whatever its other loadouts hold. Builds still being read or failed are kept when no
-   * filter is set.
+   * filter is set. The When added filter looks at the record, not the build, so it keeps those too.
+   * @param {number} [now] the time "when added" counts back from (tests pass a fixed one)
    */
-  function apply(builds, filters) {
+  function apply(builds, filters, now) {
     const f = Object.assign({}, EMPTY, filters || {});
     const anyFilter = f.patch || f.className || f.ascendancy || f.search.trim() || f.creator || f.keystones.length ||
-      f.uniques.length || f.dpsMin || f.dpsMax || f.lifeMin || f.lifeMax;
+      f.uniques.length || f.skills.length || RANGES.some((k) => f[k]);
     const out = [];
     for (const b of builds) {
       // Favorites only: a starred build still being read or failed stays, like any build when no other filter is set.
       if (f.favorites && b.favorite !== true) continue;
+      if (ADDED[f.added] && !(b.firstSeen >= (now === undefined ? Date.now() : now) - Number(f.added) * DAY)) continue;
       if (f.creator === "\u0000none" ? (b.creator && b.creator.trim()) : (f.creator && (b.creator || "").trim() !== f.creator)) continue;
       const views = viewsOf(b);
       if (views.length === 0) { if (!anyFilter) out.push({ build: b, view: -1 }); continue; }
@@ -181,7 +196,7 @@
     return out;
   }
 
-  const api = { parseAmount, formatAmount, viewsOf, defaultViewIndex, mainSkillOf, displayName, filterOptions, apply, EMPTY, NO_CREATOR: "\u0000none" };
+  const api = { parseAmount, formatAmount, viewsOf, defaultViewIndex, mainSkillOf, displayName, filterOptions, apply, EMPTY, RANGES, ADDED, NO_CREATOR: "\u0000none" };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.PobFilter = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

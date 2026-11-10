@@ -16,7 +16,7 @@
   let editing = null; // key of the build whose editor is open
   let confirmDelete = null;
   const expanded = new Set(); // keys of the rows open in this popup session
-  let keyOptions = null; // the latest filter options, for the keystone and unique type-aheads
+  let keyOptions = null; // the latest filter options, for the keystone, unique and skill type-aheads
 
   // ---------- storage of the popup's own state ----------
   // Promise forms: Firefox's browser.* only returns promises, and Chrome's MV3 APIs return them too.
@@ -68,9 +68,11 @@
       (d.getFullYear() !== new Date().getFullYear() ? " " + d.getFullYear() : "");
   }
   function activeExtraFilters() {
-    return [filters.creator, filters.dpsMin || filters.dpsMax, filters.lifeMin || filters.lifeMax]
-      .filter(Boolean).length + filters.keystones.length + filters.uniques.length;
+    return [filters.creator, filters.added, filters.dpsMin || filters.dpsMax, filters.lifeMin || filters.lifeMax, filters.esMin || filters.esMax,
+      filters.levelMin || filters.levelMax].filter(Boolean).length + filters.keystones.length + filters.uniques.length + filters.skills.length;
   }
+
+  const KIND_CLASS = { skill: "skill", manual: "skill manual", tag: "tag", dps: "dps" }; // buildview part kinds → classes
 
   // ---------- filter controls ----------
   function renderFilters(opts) {
@@ -80,19 +82,23 @@
     const ascList = filters.className ? (opts.ascendanciesByClass[filters.className] || []) : opts.allAscendancies;
     filters.ascendancy = fillSelect($("ascendancy"), [["", "All ascendancies"]].concat(ascList.map((a) => [a, a])), filters.ascendancy);
     filters.creator = fillSelect($("creator"), [["", "Any"], [F.NO_CREATOR, "No creator"]].concat(opts.creators.map((c) => [c, c])), filters.creator);
+    filters.added = fillSelect($("added"), [["", "Any time"]].concat(Object.keys(F.ADDED).map((d) => [d, F.ADDED[d]])), filters.added);
     filters.keystones = filters.keystones.filter((k) => opts.keystones.indexOf(k) !== -1);
     filters.uniques = filters.uniques.filter((u) => opts.uniques.indexOf(u) !== -1);
+    filters.skills = filters.skills.filter((s) => opts.skills.indexOf(s) !== -1);
     $("sort").value = filters.sort;
     $("favorites").setAttribute("aria-pressed", filters.favorites ? "true" : "false");
     if (document.activeElement !== $("search")) $("search").value = filters.search;
-    for (const k of ["dpsMin", "dpsMax", "lifeMin", "lifeMax"]) if (document.activeElement !== $(k)) $(k).value = filters[k];
+    for (const k of F.RANGES) if (document.activeElement !== $(k)) $(k).value = filters[k];
     $("keystoneList").replaceChildren(...opts.keystones.map((k) => el("option", { value: k })));
     $("uniqueList").replaceChildren(...opts.uniques.map((u) => el("option", { value: u })));
+    $("skillList").replaceChildren(...opts.skills.map((s) => el("option", { value: s })));
     renderChips("keystoneChips", "keystoneInput", "keystones");
     renderChips("uniqueChips", "uniqueInput", "uniques");
+    renderChips("skillChips", "skillInput", "skills");
     const n = activeExtraFilters();
     $("moreSummary").textContent = "More filters" + (n ? " (" + n + " active)" : "");
-    for (const k of ["dpsMin", "dpsMax", "lifeMin", "lifeMax"]) {
+    for (const k of F.RANGES) {
       $(k).style.borderColor = Number.isNaN(F.parseAmount(filters[k])) ? "var(--danger)" : "";
     }
   }
@@ -160,13 +166,14 @@
     if (b.status === "pending") line2 = el("div", { class: "line meta", text: "Reading build…" });
     else if (b.status === "error" || !info) line2 = el("div", { class: "line meta" }, [el("span", { class: "error", text: b.error || "Could not read this build" })]);
     else {
-      const KIND = { skill: "skill", manual: "skill manual", tag: "tag", dps: "dps" };
-      const parts = V.summaryParts(b, view).map((p) => el("span", { class: KIND[p.kind] || "", text: p.text, title: p.title || "" }));
+      const parts = V.summaryParts(b, view).map((p) => el("span", { class: KIND_CLASS[p.kind] || "", text: p.text, title: p.title || "" }));
       line2 = el("div", { class: "line meta" }, parts);
     }
+    const stats = V.statParts(b);
+    const line3 = stats ? el("div", { class: "line meta statline" }, stats.map((p) => el("span", { class: KIND_CLASS[p.kind] || "", text: p.text, title: p.title || "" }))) : null;
 
     const open = expanded.has(b.key);
-    const children = [line1, line2];
+    const children = [line1, line2].concat(line3 ? [line3] : []);
     if (open) children.push(renderDetails(b, views, vi));
     if (editing === b.key) children.push(renderEditor(b, views, vi));
     const toggle = () => { if (open) expanded.delete(b.key); else expanded.add(b.key); render(); };
@@ -273,14 +280,15 @@
 
   // ---------- wiring ----------
   function bind() {
-    for (const id of ["patch", "className", "ascendancy", "creator", "sort"]) {
+    for (const id of ["patch", "className", "ascendancy", "creator", "added", "sort"]) {
       $(id).addEventListener("change", (e) => { filters[id] = e.target.value; if (id === "className") filters.ascendancy = ""; changed(); });
     }
-    for (const id of ["search", "dpsMin", "dpsMax", "lifeMin", "lifeMax"]) {
+    for (const id of ["search"].concat(F.RANGES)) {
       $(id).addEventListener("input", (e) => { filters[id] = e.target.value; changed(); });
     }
     $("keystoneInput").addEventListener("change", (e) => addChip("keystones", e.target, keyOptions ? keyOptions.keystones : []));
     $("uniqueInput").addEventListener("change", (e) => addChip("uniques", e.target, keyOptions ? keyOptions.uniques : []));
+    $("skillInput").addEventListener("change", (e) => addChip("skills", e.target, keyOptions ? keyOptions.skills : []));
     $("favorites").addEventListener("click", () => { filters.favorites = !filters.favorites; changed(); });
     $("clearAll").addEventListener("click", () => { filters = Object.assign({}, F.EMPTY, { sort: filters.sort }); changed(); });
     ext.runtime.onMessage.addListener((msg) => { if (msg && msg.type === "builds-changed") reload(); });

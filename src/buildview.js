@@ -35,11 +35,22 @@
     if (info.ruthless) parts.push({ text: "Ruthless", kind: "tag" });
     if (info.alternate) parts.push({ text: "Alternate", kind: "tag" });
     if (info.patch) parts.push({ text: info.patch, title: "Patch from the passive tree: " + (info.patchLabel || info.patch), kind: "tag" });
-    // The saved stats, whichever loadout is the default.
-    const from = savedFrom(views);
-    parts.push({ text: "· " + F.formatAmount(build.info.dps) + " DPS", title: "As exported: " + (build.info.dpsStat || "no DPS stat") + from, kind: "dps" });
-    parts.push({ text: "· " + F.formatAmount(build.info.life) + " Life", title: "As exported" + from });
-    if (build.info.es >= 1) parts.push({ text: "· " + F.formatAmount(build.info.es) + " ES", title: "As exported" + from });
+    return parts;
+  }
+
+  /**
+   * The row's third line (Wesley, Nov 10, 2026): the saved DPS, Life, ES (when 1 or more) and EHP (PoB's TotalEHP),
+   * whichever loadout is the default; null when the build isn't read.
+   */
+  function statParts(build) {
+    if (!build || build.status !== "ok" || !build.info) return null;
+    const i = build.info;
+    const from = savedFrom(F.viewsOf(build));
+    const ehp = i.stats && i.stats.TotalEHP !== undefined ? i.stats.TotalEHP : null;
+    const parts = [{ text: F.formatAmount(i.dps) + " DPS", title: "As exported: " + (i.dpsStat || "no DPS stat") + from, kind: "dps" }];
+    parts.push({ text: "· " + F.formatAmount(i.life) + " Life", title: "As exported" + from });
+    if (i.es >= 1) parts.push({ text: "· " + F.formatAmount(i.es) + " ES", title: "As exported" + from });
+    parts.push({ text: "· " + F.formatAmount(ehp) + " EHP", title: "Effective hit pool, as exported (TotalEHP)" + from });
     return parts;
   }
 
@@ -86,7 +97,7 @@
     return changes;
   }
 
-  const api = { savedFrom, mainSkillNote, summaryParts, editorModel, editChanges };
+  const api = { savedFrom, mainSkillNote, summaryParts, statParts, editorModel, editChanges };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.PobBuildView = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
