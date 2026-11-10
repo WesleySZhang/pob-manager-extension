@@ -68,7 +68,7 @@
       (d.getFullYear() !== new Date().getFullYear() ? " " + d.getFullYear() : "");
   }
   function activeExtraFilters() {
-    return [filters.creator, filters.added, filters.dpsMin || filters.dpsMax, filters.lifeMin || filters.lifeMax, filters.esMin || filters.esMax,
+    return [filters.creator, filters.added, filters.dpsMin || filters.dpsMax, filters.lifeMin || filters.lifeMax, filters.esMin || filters.esMax, filters.ehpMin || filters.ehpMax,
       filters.levelMin || filters.levelMax].filter(Boolean).length + filters.keystones.length + filters.uniques.length + filters.skills.length;
   }
 

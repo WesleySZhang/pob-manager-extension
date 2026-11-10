@@ -93,6 +93,12 @@ function check(cond, msg) {
     await popup.waitForFunction(() => document.querySelectorAll(".build").length === 0, { timeout: 10000, polling: 200 });
     check(true, "an energy shield minimum of 1b matches no build");
     await setVal("#esMin", "", "input");
+    // EHP range on the saved TotalEHP: of this run's builds (149k, 91.2k, 228k EHP) only one has 200k or more.
+    await setVal("#ehpMin", "200k", "input");
+    await popup.waitForFunction(() => document.querySelectorAll(".build").length === 1, { timeout: 10000, polling: 200 });
+    check(/228k EHP/.test(await popup.$eval(".build", (e) => e.innerText)), "an EHP minimum of 200k keeps only the 228k EHP build");
+    await setVal("#ehpMin", "", "input");
+    await popup.waitForFunction((n) => document.querySelectorAll(".build").length === n, { timeout: 10000, polling: 200 }, allRows);
     check((await popup.$$eval("#added option", (os) => os.map((o) => o.textContent))).join("|") === "Any time|Last 24 hours|Last 7 days|Last 30 days|Last 90 days",
       "the When added drop-down's choices");
     await setVal("#added", "1", "change");

@@ -230,6 +230,20 @@ test("energy shield range uses the saved ES; a build without it is left out", ()
   assert.deepEqual(keys(F.apply(more, { esMin: "lots" })), ["ci", "hy"], "bad input is ignored, but a range is set so ES must exist");
 });
 
+// Wesley, Nov 10, 2026: an EHP range and sort, on PoB's saved TotalEHP.
+test("EHP range and sort use the saved TotalEHP; a build without it is left out of a range and sorts last", () => {
+  const e = [
+    build("tank", { lastSeen: 3 }, { stats: { TotalEHP: 250000 } }),
+    build("mid", { lastSeen: 2 }, { stats: { TotalEHP: 90000 } }),
+    build("none", { lastSeen: 1 }, { stats: {} }),
+  ];
+  assert.deepEqual(keys(F.apply(e, { ehpMin: "100k" })), ["tank"]);
+  assert.deepEqual(keys(F.apply(e, { ehpMax: "90000" })), ["mid"], "inclusive; no saved EHP: left out");
+  assert.deepEqual(keys(F.apply(e, { ehpMin: "90k", ehpMax: "250k" })), ["tank", "mid"]);
+  assert.deepEqual(keys(F.apply(e, { sort: "ehp" })), ["tank", "mid", "none"]);
+  assert.deepEqual(keys(F.apply([build("nostats", {}, {})], { ehpMin: "1" })), [], "no stats at all");
+});
+
 test("level range is inclusive at both ends", () => {
   assert.deepEqual(keys(F.apply(more, { levelMin: "92" })), ["ci", "hy"]);
   assert.deepEqual(keys(F.apply(more, { levelMin: "90", levelMax: "92" })), ["hy"]);

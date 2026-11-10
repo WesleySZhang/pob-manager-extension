@@ -107,11 +107,13 @@
   }
 
   const EMPTY = { patch: "", className: "", ascendancy: "", search: "", creator: "", keystones: [], uniques: [], skills: [],
-    dpsMin: "", dpsMax: "", lifeMin: "", lifeMax: "", esMin: "", esMax: "", levelMin: "", levelMax: "", added: "", favorites: false, sort: "newest" };
+    dpsMin: "", dpsMax: "", lifeMin: "", lifeMax: "", esMin: "", esMax: "", ehpMin: "", ehpMax: "", levelMin: "", levelMax: "", added: "", favorites: false, sort: "newest" };
   // When added: within this many days of now, by firstSeen (the first visit). "" is any time.
   const ADDED = { "1": "Last 24 hours", "7": "Last 7 days", "30": "Last 30 days", "90": "Last 90 days" };
   const DAY = 86400000;
-  const RANGES = ["dpsMin", "dpsMax", "lifeMin", "lifeMax", "esMin", "esMax", "levelMin", "levelMax"];
+  const RANGES = ["dpsMin", "dpsMax", "lifeMin", "lifeMax", "esMin", "esMax", "ehpMin", "ehpMax", "levelMin", "levelMax"];
+  // EHP: PoB's saved TotalEHP PlayerStat (null when the build has none).
+  const ehpOf = (b) => (b.info && b.info.stats && b.info.stats.TotalEHP !== undefined ? b.info.stats.TotalEHP : null);
 
   function inRange(value, minText, maxText) {
     const min = parseAmount(minText), max = parseAmount(maxText);
@@ -138,7 +140,7 @@
       // character level is the build's own (PoB's <Build level>), the same in every loadout.
       const s = build.info;
       if (!inRange(s.dps, f.dpsMin, f.dpsMax) || !inRange(s.life, f.lifeMin, f.lifeMax) ||
-        !inRange(s.es, f.esMin, f.esMax) || !inRange(s.level, f.levelMin, f.levelMax)) return false;
+        !inRange(s.es, f.esMin, f.esMax) || !inRange(ehpOf(build), f.ehpMin, f.ehpMax) || !inRange(s.level, f.levelMin, f.levelMax)) return false;
     }
     const q = (f.search || "").trim().toLowerCase();
     if (q) {
@@ -157,6 +159,7 @@
     dps: { key: savedStat("dps"), desc: true },
     life: { key: savedStat("life"), desc: true },
     es: { key: savedStat("es"), desc: true },
+    ehp: { key: ehpOf, desc: true },
     level: { key: (b) => (b.info ? b.info.level : null), desc: true },
     name: { key: (b) => displayName(b).toLowerCase(), desc: false },
     visits: { key: (b) => b.visits, desc: true },

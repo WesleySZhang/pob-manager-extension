@@ -34,9 +34,9 @@ site it came from.
 ## The popup
 
 - Patch drop-down (with the league), class and ascendancy drop-downs, search by name, creator or gem, sort.
-- More filters: creator, when added (last 24 hours, 7, 30 or 90 days, by the first visit), DPS, Life, energy shield and
-  level ranges (`1.5m`, `800k`), keystones, uniques and skills (every skill listed must be an active skill of the build,
-  in any socket group; supports don't count). Sorts include energy shield and newest added.
+- More filters: creator, when added (last 24 hours, 7, 30 or 90 days, by the first visit), DPS, Life, energy shield, EHP
+  and level ranges (`1.5m`, `800k`), keystones, uniques and skills (every skill listed must be an active skill of the build,
+  in any socket group; supports don't count). Sorts include energy shield, EHP and newest added.
 - **Search, filters and sorting look only at each build's default loadout** (the one set by hand, else the saved one).
   A build whose other loadouts would match is not shown.
 - Each build is a three-line row (name; class, level, main skill and patch; the saved DPS and EHP) with **Open link** and **Open in PoB** (`pob://` link) buttons. **Click the row to
